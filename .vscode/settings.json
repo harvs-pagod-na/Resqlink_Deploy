@@ -1,0 +1,22 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/GAWAN KE/ai-service/venv/Scripts/python.exe",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/GAWAN KE/ai-service",
+    "${workspaceFolder}/GAWAN KE/ai-service/routes",
+    "${workspaceFolder}/ai-service",
+    "${workspaceFolder}/ai-service/routes"
+  ],
+  "python.autoComplete.extraPaths": [
+    "${workspaceFolder}/GAWAN KE/ai-service",
+    "${workspaceFolder}/GAWAN KE/ai-service/routes",
+    "${workspaceFolder}/ai-service",
+    "${workspaceFolder}/ai-service/routes"
+  ],
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportMissingImports": "none",
+    "reportMissingModuleSource": "none",
+    "reportUndefinedVariable": "none",
+    "reportUnusedImport": "none",
+    "reportGeneralTypeIssues": "none"
+  }
+}

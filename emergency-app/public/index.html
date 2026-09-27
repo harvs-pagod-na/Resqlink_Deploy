@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RESQLINK | CITIZEN SOS & VERIFICATION</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace, sans-serif;
+    }
+
+    body {
+      background-color: #000000;
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 12px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    header {
+      border-bottom: 1px solid #333333;
+      padding-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .card {
+      background: #000000;
+      border: 1px solid #333333;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    label {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: #888888;
+      text-transform: uppercase;
+      font-weight: 700;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    input[type="text"], input[type="tel"], select, textarea, input[type="file"] {
+      background: #000000;
+      border: 1px solid #444444;
+      color: #ffffff;
+      padding: 12px;
+      font-size: 13px;
+      outline: none;
+      width: 100%;
+      transition: border-color 0.15s ease;
+    }
+
+    input[type="text"]:focus, input[type="tel"]:focus, select:focus, textarea:focus {
+      border-color: #ffffff;
+    }
+
+    select {
+      cursor: pointer;
+    }
+
+    button {
+      background: #000000;
+      color: #ffffff;
+      border: 1px solid #ffffff;
+      padding: 14px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.15s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background: #ffffff;
+      color: #000000;
+    }
+
+    button:disabled {
+      border-color: #333333;
+      color: #555555;
+      cursor: not-allowed;
+    }
+
+    .btn-emergency {
+      padding: 18px;
+      font-size: 15px;
+      letter-spacing: 2px;
+      border: 2px solid #ffffff;
+      background: #000000;
+      color: #ffffff;
+    }
+
+    .btn-emergency:hover:not(:disabled) {
+      background: #ffffff;
+      color: #000000;
+    }
+
+    .status-badge {
+      border: 1px solid #ffffff;
+      padding: 10px;
+      font-size: 12px;
+      text-align: center;
+      letter-spacing: 1px;
+      font-weight: 700;
+      background: #000000;
+    }
+
+    .status-badge.highlight {
+      background: #ffffff;
+      color: #000000;
+    }
+
+    .badge-verified {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #ffffff;
+      color: #000000;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 4px 8px;
+      letter-spacing: 1px;
+      border-radius: 2px;
+    }
+
+    .badge-pending {
+      display: inline-block;
+      border: 1px solid #ffffff;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 8px;
+      letter-spacing: 1px;
+    }
+
+    .badge-rejected {
+      display: inline-block;
+      border: 1px solid #666666;
+      color: #888888;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 8px;
+      letter-spacing: 1px;
+    }
+
+    .info-box {
+      border: 1px dashed #444444;
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #cccccc;
+    }
+
+    .pulse {
+      animation: pulseAnimation 1.5s infinite;
+    }
+
+    @keyframes pulseAnimation {
+      0% { opacity: 1; }
+      50% { opacity: 0.4; }
+      100% { opacity: 1; }
+    }
+
+    #map {
+      width: 100%;
+      height: 280px;
+      border: 1px solid #333333;
+      background: #000000;
+    }
+
+    .tactical-dark-tile {
+      filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+    }
+
+    .chat-box {
+      border: 1px solid #333333;
+      height: 120px;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .msg {
+      padding: 5px 8px;
+      border: 1px solid #333333;
+      max-width: 85%;
+      word-break: break-word;
+    }
+
+    .msg.citizen {
+      align-self: flex-end;
+      border-color: #ffffff;
+      background: #111111;
+    }
+
+    .msg.admin, .msg.rescuer {
+      align-self: flex-start;
+      border-color: #555555;
+      background: #000000;
+    }
+
+    .chat-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .mono {
+      font-family: monospace;
+    }
+
+    .preview-thumb {
+      max-height: 120px;
+      border: 1px solid #444;
+      object-fit: cover;
+      margin-top: 6px;
+      display: none;
+    }
+
+    /* Grab-style smooth marker transitions */
+    .leaflet-marker-icon {
+      transition: transform 0.4s linear;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div>
+        <h1>RESQLINK CITIZEN RADAR</h1>
+        <div id="user-header-status" class="mono" style="font-size: 10px; color: #888888; margin-top: 2px;">
+          AUTH: UNVERIFIED GUEST
+        </div>
+      </div>
+      <span id="socket-status" style="font-size: 11px; color: #888888;">CONNECTING...</span>
+    </header>
+
+    <!-- ==================== VIEW 1: KYC VERIFICATION FORM ==================== -->
+    <div id="section-kyc-form" class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 13px; font-weight: 800; letter-spacing: 1px;">CITIZEN ID & FACIAL VERIFICATION</span>
+        <span class="badge-pending">STEP 1 OF 2</span>
+      </div>
+
+      <div class="info-box">
+        <strong>ANTI-FAKE REPORT POLICY:</strong> To ensure prompt emergency response and eliminate prank reports, all citizens must verify their identity using a valid Government ID and a matching Live Facial Selfie before accessing emergency dispatch.
+      </div>
+
+      <div>
+        <label>FULL LEGAL NAME</label>
+        <input type="text" id="kyc-name" placeholder="e.g. JUAN DELA CRUZ" />
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div>
+          <label>MUNICIPALITY (PAMPANGA)</label>
+          <select id="kyc-municipality" style="background:#000;color:#fff;border:1px solid #fff;padding:8px;font-size:12px;width:100%;">
+            <option value="Porac">Porac, Pampanga</option>
+            <option value="Santa Rita">Santa Rita, Pampanga</option>
+            <option value="Guagua">Guagua, Pampanga</option>
+          </select>
+        </div>
+        <div>
+          <label>BARANGAY / STREET</label>
+          <input type="text" id="kyc-address" placeholder="e.g. Brgy. Cangatba" />
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div>
+          <label>MOBILE NUMBER</label>
+          <input type="tel" id="kyc-phone" placeholder="09XXXXXXXXX" />
+        </div>
+        <div>
+          <label>GOVERNMENT ID TYPE</label>
+          <select id="kyc-id-type">
+            <option value="">-- SELECT VALID ID --</option>
+            <option value="Philippine National ID (PhilSys)">Philippine National ID (PhilSys)</option>
+            <option value="Driver's License (LTO)">Driver's License (LTO)</option>
+            <option value="Philippine Passport (DFA)">Philippine Passport (DFA)</option>
+            <option value="UMID / SSS / GSIS">UMID / SSS / GSIS</option>
+            <option value="Voter's ID / Comelec Certificate">Voter's ID / Comelec Certificate</option>
+            <option value="Postal ID (PhlPost)">Postal ID (PhlPost)</option>
+            <option value="PRC License">PRC License</option>
+            <option value="Barangay ID / Certificate">Barangay ID / Certificate</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Government ID Photo Upload -->
+      <div>
+        <label>1. UPLOAD GOVERNMENT-ISSUED ID (FRONT PHOTO)</label>
+        <input type="file" id="kyc-id-file" accept="image/*" />
+        <img id="preview-id" class="preview-thumb" alt="ID Preview" />
+      </div>
+
+      <!-- Facial Verification (Selfie) -->
+      <div>
+        <label>2. FACIAL VERIFICATION (CLEAR LIVE SELFIE PHOTO)</label>
+        <div style="font-size: 10px; color: #888888; margin-bottom: 4px;">Take a clear selfie showing your face directly to confirm matching with your ID.</div>
+        <input type="file" id="kyc-selfie-file" accept="image/*" />
+        <img id="preview-selfie" class="preview-thumb" alt="Selfie Preview" />
+      </div>
+
+      <button id="btn-submit-kyc" style="margin-top: 6px;">
+        SUBMIT VERIFICATION TO COMMAND NOC
+      </button>
+    </div>
+
+    <!-- ==================== VIEW 2: PENDING REVIEW HUD ==================== -->
+    <div id="section-kyc-pending" class="card hidden">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 13px; font-weight: 800; letter-spacing: 1px;">VERIFICATION UNDER REVIEW</span>
+        <span class="badge-pending pulse">● IN QUEUE</span>
+      </div>
+
+      <div class="info-box" style="text-align: center; padding: 20px 10px;">
+        <div style="font-size: 24px; margin-bottom: 10px;">🛡️</div>
+        <div style="font-size: 14px; font-weight: 800; margin-bottom: 6px;" id="pending-user-name">JUAN DELA CRUZ</div>
+        <div class="mono" style="font-size: 11px; color: #888888; margin-bottom: 12px;" id="pending-user-id">USER ID: USR-XXXXX</div>
+        <p style="font-size: 12px; color: #ffffff; line-height: 1.6;">
+          Your Government ID and Facial Verification are currently being reviewed by the <strong>Command NOC Dispatcher</strong>.
+        </p>
+        <p style="font-size: 11px; color: #888888; margin-top: 8px;">
+          This screen will automatically unlock your Emergency SOS as soon as the Admin approves your profile.
+        </p>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; border: 1px solid #333; padding: 10px;" class="mono">
+        <span style="font-size: 11px; color: #888;">STATUS:</span>
+        <span style="font-size: 11px; color: #fff; font-weight: 700;">AWAITING ADMIN APPROVAL</span>
+      </div>
+
+      <button id="btn-reset-kyc" style="font-size: 11px; padding: 10px; border-color: #444; color: #888;">
+        EDIT / RE-ENTER DETAILS
+      </button>
+    </div>
+
+    <!-- ==================== VIEW 3: REJECTED NOTICE ==================== -->
+    <div id="section-kyc-rejected" class="card hidden">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 13px; font-weight: 800; letter-spacing: 1px; color: #ff5555;">VERIFICATION REJECTED</span>
+        <span class="badge-rejected">REJECTED</span>
+      </div>
+
+      <div class="info-box" style="border-color: #662222; background: #150505;">
+        <strong>REASON FOR REJECTION:</strong>
+        <div id="rejected-reason-text" style="margin-top: 6px; font-size: 12px; color: #ffaaaa;">
+          ID or facial photo was blurry or did not match.
+        </div>
+      </div>
+
+      <button id="btn-reapply-kyc">
+        RE-SUBMIT CLEAR ID & SELFIE
+      </button>
+    </div>
+
+    <!-- ==================== VIEW 4: VERIFIED CITIZEN SOS STATION ==================== -->
+    <div id="section-sos-station" class="card hidden">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="badge-verified">
+          <span>✓</span> VERIFIED CITIZEN
+        </div>
+        <button id="btn-switch-account" style="font-size: 10px; padding: 4px 8px; border-color: #444; color: #888;">
+          CHANGE PROFILE
+        </button>
+      </div>
+
+      <div style="border-left: 2px solid #fff; padding-left: 10px; margin: 4px 0;">
+        <div id="verified-citizen-name" style="font-size: 14px; font-weight: 800;">-</div>
+        <div id="verified-citizen-info" class="mono" style="font-size: 11px; color: #888888;">PHONE: - | ID: -</div>
+      </div>
+
+      <!-- SOS Form -->
+      <div id="sos-form-box" style="display: flex; flex-direction: column; gap: 10px;">
+        <div>
+          <label>EMERGENCY SITUATION / DESCRIPTION</label>
+          <textarea id="citizen-desc" rows="3" placeholder="Describe emergency, number of victims, hazards, or immediate needs..." style="resize: none;"></textarea>
+        </div>
+
+        <div>
+          <label>ATTACH INCIDENT PHOTO (OPTIONAL)</label>
+          <input type="file" id="citizen-photo" accept="image/*" />
+        </div>
+
+        <div>
+          <label>AUTO GPS SATELLITE LOCK</label>
+          <div id="gps-status" class="mono" style="font-size: 11px; color: #888888; margin-top: 2px;">
+            Acquiring GPS coordinates...
+          </div>
+        </div>
+
+        <button id="btn-submit-sos" class="btn-emergency">
+          TRANSMIT EMERGENCY SOS
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== VIEW 5: ACTIVE TRACKING HUD ==================== -->
+    <div id="section-tracking" class="card hidden">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span id="incident-id-display" class="mono" style="font-size: 11px; color: #888888;">INCIDENT: -</span>
+        <span id="live-indicator" class="mono" style="font-size: 10px; color: #fff; background: #222; border: 1px solid #444; padding: 2px 6px;">
+          ● LIVE TELEMETRY
+        </span>
+      </div>
+
+      <div id="status-badge" class="status-badge">
+        WAITING FOR ADMIN DISPATCH...
+      </div>
+
+      <!-- Real-Time Map -->
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <label>REAL-TIME RESCUER RADAR</label>
+        <span id="telemetry-speed" class="mono" style="font-size: 10px; color: #888888;">SPEED: 0 km/h</span>
+      </div>
+      <div id="map"></div>
+
+      <!-- Dynamic Live Telemetry Counters -->
+      <div class="mono" style="font-size: 11px; color: #ffffff; display: flex; justify-content: space-between; border: 1px solid #333; padding: 8px;">
+        <span id="telemetry-dist">DISTANCE: CALCULATING...</span>
+        <span id="telemetry-eta">ETA: CALCULATING...</span>
+      </div>
+    </div>
+
+    <!-- ==================== VIEW 6: IN-APP RADIO CHAT ==================== -->
+    <div id="section-chat" class="card hidden">
+      <label>RADIO CHAT (COMMAND NOC & RESCUER)</label>
+      <div id="chat-box" class="chat-box">
+        <div style="font-size: 11px; color: #555555; text-align: center;">Radio channel online.</div>
+      </div>
+      <div class="chat-row">
+        <input type="text" id="chat-input" placeholder="Type message..." />
+        <button id="btn-send-chat" style="padding: 10px 14px;">SEND</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Socket.io -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script>
+    const socket = io();
+
+    let currentUser = null;
+    let currentIncident = null;
+    let map = null;
+    let userMarker = null;
+    let rescuerMarker = null;
+    let routeLine = null;
+    let gpsCoords = { lat: 15.0343, lng: 120.6843 };
+
+    // DOM Elements
+    const userHeaderStatus = document.getElementById('user-header-status');
+    const socketStatus = document.getElementById('socket-status');
+
+    // Sections
+    const sectionKycForm = document.getElementById('section-kyc-form');
+    const sectionKycPending = document.getElementById('section-kyc-pending');
+    const sectionKycRejected = document.getElementById('section-kyc-rejected');
+    const sectionSosStation = document.getElementById('section-sos-station');
+    const sectionTracking = document.getElementById('section-tracking');
+    const sectionChat = document.getElementById('section-chat');
+
+    // KYC Inputs
+    const kycName = document.getElementById('kyc-name');
+    const kycPhone = document.getElementById('kyc-phone');
+    const kycAddress = document.getElementById('kyc-address');
+    const kycIdType = document.getElementById('kyc-id-type');
+    const kycIdFile = document.getElementById('kyc-id-file');
+    const kycSelfieFile = document.getElementById('kyc-selfie-file');
+    const previewId = document.getElementById('preview-id');
+    const previewSelfie = document.getElementById('preview-selfie');
+    const btnSubmitKyc = document.getElementById('btn-submit-kyc');
+
+    // Pending / Rejected Elements
+    const pendingUserName = document.getElementById('pending-user-name');
+    const pendingUserId = document.getElementById('pending-user-id');
+    const btnResetKyc = document.getElementById('btn-reset-kyc');
+    const rejectedReasonText = document.getElementById('rejected-reason-text');
+    const btnReapplyKyc = document.getElementById('btn-reapply-kyc');
+
+    // Verified / SOS Elements
+    const verifiedCitizenName = document.getElementById('verified-citizen-name');
+    const verifiedCitizenInfo = document.getElementById('verified-citizen-info');
+    const btnSwitchAccount = document.getElementById('btn-switch-account');
+    const citizenDescInput = document.getElementById('citizen-desc');
+    const citizenPhotoInput = document.getElementById('citizen-photo');
+    const gpsStatus = document.getElementById('gps-status');
+    const btnSubmitSos = document.getElementById('btn-submit-sos');
+
+    // Tracking Elements
+    const incidentIdDisplay = document.getElementById('incident-id-display');
+    const statusBadge = document.getElementById('status-badge');
+    const telemetryDist = document.getElementById('telemetry-dist');
+    const telemetryEta = document.getElementById('telemetry-eta');
+    const telemetrySpeed = document.getElementById('telemetry-speed');
+
+    // Chat Elements
+    const chatBox = document.getElementById('chat-box');
+    const chatInput = document.getElementById('chat-input');
+    const btnSendChat = document.getElementById('btn-send-chat');
+
+    // Custom Map Markers
+    const pinCitizen = L.divIcon({
+      className: '',
+      html: `<div style="width:26px;height:26px;border-radius:50%;background:#ffffff;border:2px solid #000000;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#000;box-shadow:0 0 10px rgba(255,255,255,0.4);">SOS</div>`,
+      iconSize: [26, 26], iconAnchor: [13, 13]
+    });
+
+    const pinRescuer = L.divIcon({
+      className: '',
+      html: `<div style="width:30px;height:30px;border-radius:50%;background:#000000;border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#fff;box-shadow:0 0 10px rgba(255,255,255,0.4);">🚑</div>`,
+      iconSize: [30, 30], iconAnchor: [15, 15]
+    });
+
+    // 1. Image Previews for KYC Form
+    kycIdFile.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        previewId.src = URL.createObjectURL(file);
+        previewId.style.display = 'block';
+      }
+    });
+
+    kycSelfieFile.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        previewSelfie.src = URL.createObjectURL(file);
+        previewSelfie.style.display = 'block';
+      }
+    });
+
+    // 2. Load Existing User Profile from Storage
+    function loadSavedUser() {
+      try {
+        const saved = localStorage.getItem('resqlink_user');
+        if (saved) {
+          currentUser = JSON.parse(saved);
+          if (currentUser.id) {
+            socket.emit('join_user_room', currentUser.id);
+            checkRemoteUserStatus(currentUser.id);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      renderUserViewState();
+    }
+
+    async function checkRemoteUserStatus(userId) {
+      try {
+        const res = await fetch(`/api/verification/status/${userId}`);
+        const data = await res.json();
+        if (data.success && data.user) {
+          currentUser = data.user;
+          localStorage.setItem('resqlink_user', JSON.stringify(currentUser));
+          renderUserViewState();
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderUserViewState() {
+      sectionKycForm.classList.add('hidden');
+      sectionKycPending.classList.add('hidden');
+      sectionKycRejected.classList.add('hidden');
+      sectionSosStation.classList.add('hidden');
+
+      if (!currentUser || currentUser.status === 'UNVERIFIED') {
+        userHeaderStatus.innerText = 'STATUS: UNVERIFIED';
+        userHeaderStatus.style.color = '#888888';
+        sectionKycForm.classList.remove('hidden');
+      } else if (currentUser.status === 'PENDING') {
+        userHeaderStatus.innerText = 'STATUS: PENDING REVIEW';
+        userHeaderStatus.style.color = '#ffffff';
+        pendingUserName.innerText = currentUser.fullName;
+        pendingUserId.innerText = `USER ID: ${currentUser.id}`;
+        sectionKycPending.classList.remove('hidden');
+      } else if (currentUser.status === 'REJECTED') {
+        userHeaderStatus.innerText = 'STATUS: REJECTED';
+        userHeaderStatus.style.color = '#ff5555';
+        rejectedReasonText.innerText = currentUser.rejectionReason || 'ID or Selfie was unclear or did not match.';
+        sectionKycRejected.classList.remove('hidden');
+      } else if (currentUser.status === 'VERIFIED') {
+        userHeaderStatus.innerText = 'STATUS: VERIFIED CITIZEN ✓';
+        userHeaderStatus.style.color = '#ffffff';
+        verifiedCitizenName.innerText = currentUser.fullName;
+        verifiedCitizenInfo.innerText = `PHONE: ${currentUser.phone} | ID: ${currentUser.idType}`;
+        if (!currentIncident) {
+          sectionSosStation.classList.remove('hidden');
+        }
+      }
+    }
+
+    // 3. Submit KYC Verification Request
+    btnSubmitKyc.addEventListener('click', async () => {
+      const fullName = kycName.value.trim();
+      const phone = kycPhone.value.trim();
+      const address = kycAddress.value.trim();
+      const municipalityEl = document.getElementById('kyc-municipality');
+      const municipality = municipalityEl ? municipalityEl.value : 'Porac';
+      const idType = kycIdType.value;
+      const idFile = kycIdFile.files[0];
+      const selfieFile = kycSelfieFile.files[0];
+
+      if (!fullName || !phone || !idType) {
+        alert('Please fill out your Full Name, Mobile Number, and select ID Type.');
+        return;
+      }
+
+      if (!idFile || !selfieFile) {
+        alert('Please attach both your Government ID photo and your Live Facial Selfie.');
+        return;
+      }
+
+      btnSubmitKyc.disabled = true;
+      btnSubmitKyc.innerText = 'UPLOADING & TRANSMITTING KYC...';
+
+      const formData = new FormData();
+      formData.append('fullName', fullName);
+      formData.append('phone', phone);
+      formData.append('municipality', municipality);
+      formData.append('address', address);
+      formData.append('idType', idType);
+      if (currentUser && currentUser.id) {
+        formData.append('existingUserId', currentUser.id);
+      }
+      formData.append('idPhoto', idFile);
+      formData.append('selfiePhoto', selfieFile);
+
+      try {
+        const res = await fetch('/api/verification/submit', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success && data.user) {
+          currentUser = data.user;
+          localStorage.setItem('resqlink_user', JSON.stringify(currentUser));
+          socket.emit('join_user_room', currentUser.id);
+          renderUserViewState();
+        } else {
+          alert(data.message || 'Verification submission failed.');
+        }
+      } catch (err) {
+        alert('Submission error. Please check server connection.');
+      } finally {
+        btnSubmitKyc.disabled = false;
+        btnSubmitKyc.innerText = 'SUBMIT VERIFICATION TO COMMAND NOC';
+      }
+    });
+
+    btnResetKyc.addEventListener('click', () => {
+      if (currentUser) {
+        kycName.value = currentUser.fullName || '';
+        kycPhone.value = currentUser.phone || '';
+        kycAddress.value = currentUser.address || '';
+        kycIdType.value = currentUser.idType || '';
+      }
+      currentUser.status = 'UNVERIFIED';
+      renderUserViewState();
+    });
+
+    btnReapplyKyc.addEventListener('click', () => {
+      if (currentUser) {
+        kycName.value = currentUser.fullName || '';
+        kycPhone.value = currentUser.phone || '';
+        kycAddress.value = currentUser.address || '';
+        kycIdType.value = currentUser.idType || '';
+      }
+      currentUser.status = 'UNVERIFIED';
+      renderUserViewState();
+    });
+
+    btnSwitchAccount.addEventListener('click', () => {
+      if (confirm('Switch profile or re-verify?')) {
+        localStorage.removeItem('resqlink_user');
+        currentUser = null;
+        renderUserViewState();
+      }
+    });
+
+    // 4. Real-time User Status Update (Admin Approval / Rejection)
+    socket.on('user_status_changed', (updatedUser) => {
+      if (currentUser && currentUser.id === updatedUser.id) {
+        currentUser = updatedUser;
+        localStorage.setItem('resqlink_user', JSON.stringify(currentUser));
+        renderUserViewState();
+      }
+    });
+
+    // 5. Auto GPS Capture on Load
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          gpsCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          gpsStatus.innerText = `LOCKED: ${gpsCoords.lat.toFixed(5)}, ${gpsCoords.lng.toFixed(5)}`;
+          gpsStatus.style.color = '#ffffff';
+        },
+        () => {
+          gpsStatus.innerText = `FALLBACK COORDS: ${gpsCoords.lat}, ${gpsCoords.lng}`;
+        },
+        { enableHighAccuracy: true, timeout: 6000 }
+      );
+    }
+
+    // 6. Socket Connection Status
+    socket.on('connect', () => {
+      socketStatus.innerText = 'ONLINE (ACTIVE)';
+      socketStatus.style.color = '#ffffff';
+      if (currentUser && currentUser.id) {
+        socket.emit('join_user_room', currentUser.id);
+      }
+    });
+
+    socket.on('disconnect', () => {
+      socketStatus.innerText = 'OFFLINE';
+      socketStatus.style.color = '#888888';
+    });
+
+    // 7. Submit Emergency SOS (Only available when verified)
+    btnSubmitSos.addEventListener('click', async () => {
+      if (!currentUser || currentUser.status !== 'VERIFIED') {
+        alert('You must complete and have an approved identity verification before sending an SOS.');
+        return;
+      }
+
+      const description = citizenDescInput.value.trim();
+      const file = citizenPhotoInput.files[0];
+
+      btnSubmitSos.disabled = true;
+      btnSubmitSos.innerText = 'TRANSMITTING SOS...';
+
+      const formData = new FormData();
+      formData.append('userId', currentUser.id);
+      formData.append('name', currentUser.fullName);
+      formData.append('phone', currentUser.phone);
+      formData.append('userVerified', 'true');
+      formData.append('description', description);
+      formData.append('lat', gpsCoords.lat);
+      formData.append('lng', gpsCoords.lng);
+      if (file) formData.append('photo', file);
+
+      try {
+        const res = await fetch('/api/emergency', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+          currentIncident = data.incident;
+          socket.emit('join_incident_room', currentIncident.id);
+          showTrackingView(currentIncident);
+        }
+      } catch (e) {
+        alert('Transmission error. Please try again.');
+        btnSubmitSos.disabled = false;
+        btnSubmitSos.innerText = 'TRANSMIT EMERGENCY SOS';
+      }
+    });
+
+    function showTrackingView(inc) {
+      sectionSosStation.classList.add('hidden');
+      sectionTracking.classList.remove('hidden');
+      sectionChat.classList.remove('hidden');
+
+      incidentIdDisplay.innerText = `INCIDENT: ${inc.id}`;
+      updateStatusBadge(inc.status);
+      initMap(inc.lat, inc.lng, inc.rescuerLat, inc.rescuerLng);
+    }
+
+    function updateStatusBadge(status) {
+      statusBadge.innerText = status.replace(/_/g, ' ');
+      if (['ACCEPTED', 'EN_ROUTE', 'ON_SCENE'].includes(status)) {
+        statusBadge.className = 'status-badge highlight';
+      } else if (status === 'DONE') {
+        statusBadge.className = 'status-badge highlight';
+        statusBadge.innerText = 'MISSION COMPLETED (DONE)';
+      } else {
+        statusBadge.className = 'status-badge';
+      }
+    }
+
+    // 8. Leaflet Map for Tracking
+    function initMap(userLat, userLng, rLat, rLng) {
+      if (!map) {
+        map = L.map('map').setView([userLat, userLng], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          className: 'tactical-dark-tile',
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        userMarker = L.marker([userLat, userLng], { icon: pinCitizen }).addTo(map).bindPopup('MY LOCATION').openPopup();
+
+        if (rLat && rLng) {
+          rescuerMarker = L.marker([rLat, rLng], { icon: pinRescuer }).addTo(map).bindPopup('RESCUER UNIT');
+          routeLine = L.polyline([[rLat, rLng], [userLat, userLng]], { color: '#ffffff', weight: 2, dashArray: '4,4' }).addTo(map);
+        }
+      }
+      setTimeout(() => map.invalidateSize(), 200);
+    }
+
+    // 9. Socket Status Updates
+    socket.on('incident_updated', (inc) => {
+      if (currentIncident && currentIncident.id === inc.id) {
+        currentIncident = inc;
+        updateStatusBadge(inc.status);
+      }
+    });
+
+    // 10. REAL-TIME TELEMETRY STREAM (Sub-second Grab-style vehicle movement)
+    socket.on('live_rescuer_position', ({ lat, lng, speed }) => {
+      if (!map) return;
+
+      if (rescuerMarker) {
+        rescuerMarker.setLatLng([lat, lng]);
+      } else {
+        rescuerMarker = L.marker([lat, lng], { icon: pinRescuer }).addTo(map).bindPopup('RESCUER UNIT');
+      }
+
+      if (userMarker) {
+        const uPos = userMarker.getLatLng();
+        if (routeLine) {
+          routeLine.setLatLngs([[lat, lng], [uPos.lat, uPos.lng]]);
+        }
+        
+        // Calculate dynamic real-time distance and ETA
+        const distM = map.distance([lat, lng], uPos);
+        telemetryDist.innerText = distM > 1000 ? `DIST: ${(distM / 1000).toFixed(2)} km` : `DIST: ${Math.round(distM)} m`;
+        
+        const effectiveSpeed = speed > 2 ? speed : 11.5; // ~40km/h average
+        const etaSec = Math.max(10, Math.round(distM / effectiveSpeed));
+        telemetryEta.innerText = etaSec > 60 ? `ETA: ~${Math.ceil(etaSec / 60)} min` : `ETA: ~${etaSec}s`;
+        telemetrySpeed.innerText = `SPEED: ${Math.round((speed || 0) * 3.6)} km/h`;
+      }
+    });
+
+    // 11. Chat
+    function sendChat() {
+      const text = chatInput.value.trim();
+      if (!text || !currentIncident) return;
+      socket.emit('send_chat', {
+        incidentId: currentIncident.id,
+        sender: 'CITIZEN',
+        text
+      });
+      chatInput.value = '';
+    }
+
+    btnSendChat.addEventListener('click', sendChat);
+    chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+
+    socket.on('receive_chat', ({ incidentId, message }) => {
+      if (currentIncident && currentIncident.id === incidentId) {
+        const div = document.createElement('div');
+        div.className = `msg ${message.sender.toLowerCase()}`;
+        div.innerHTML = `<span style="font-size:9px;color:#888;">${message.sender} • ${message.time}</span><br>${message.text}`;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    });
+
+    // Init on boot
+    loadSavedUser();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COMMAND NOC | ADMIN REAL-TIME DISPATCH & KYC</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace, sans-serif;
+    }
+
+    body {
+      background-color: #000000;
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+    }
+
+    header {
+      border-bottom: 1px solid #333333;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    h1 {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    /* Top Nav Tabs */
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+    }
+
+    .tab-btn {
+      background: #000000;
+      color: #888888;
+      border: 1px solid #333333;
+      padding: 8px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.15s ease;
+    }
+
+    .tab-btn:hover {
+      border-color: #ffffff;
+      color: #ffffff;
+    }
+
+    .tab-btn.active {
+      background: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
+    }
+
+    .layout-grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 14px;
+      flex: 1;
+      height: calc(100vh - 85px);
+    }
+
+    @media (max-width: 950px) {
+      .layout-grid {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+    }
+
+    .sidebar, .main-view {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    .card {
+      background: #000000;
+      border: 1px solid #333333;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    label {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: #888888;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    button {
+      background: #000000;
+      color: #ffffff;
+      border: 1px solid #ffffff;
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.15s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background: #ffffff;
+      color: #000000;
+    }
+
+    .btn-accept {
+      background: #ffffff;
+      color: #000000;
+      border: 1px solid #ffffff;
+    }
+
+    .btn-accept:hover {
+      background: #cccccc;
+    }
+
+    .btn-reject {
+      border-color: #444444;
+      color: #888888;
+    }
+
+    .btn-reject:hover {
+      background: #222222;
+      color: #ffffff;
+    }
+
+    .list-item {
+      border: 1px solid #333333;
+      padding: 12px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: border-color 0.15s ease;
+    }
+
+    .list-item:hover {
+      border-color: #666666;
+    }
+
+    .list-item.selected {
+      border-color: #ffffff;
+      background: #111111;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 9px;
+      padding: 2px 6px;
+      border: 1px solid #ffffff;
+      letter-spacing: 1px;
+      font-weight: 700;
+    }
+
+    .badge.pending {
+      border-color: #888888;
+      color: #ffffff;
+    }
+
+    .badge.accepted, .badge.verified {
+      background: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
+    }
+
+    .badge.rejected {
+      border-color: #555555;
+      color: #888888;
+    }
+
+    .badge-count {
+      background: #ffffff;
+      color: #000000;
+      border-radius: 10px;
+      padding: 1px 6px;
+      font-size: 9px;
+      font-weight: 900;
+      margin-left: 4px;
+    }
+
+    #map {
+      width: 100%;
+      height: 360px;
+      border: 1px solid #333333;
+      background: #000000;
+    }
+
+    .tactical-dark-tile {
+      filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+    }
+
+    .chat-box {
+      border: 1px solid #333333;
+      height: 140px;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .msg {
+      padding: 5px 8px;
+      border: 1px solid #333333;
+      max-width: 85%;
+      word-break: break-word;
+    }
+
+    .msg.admin {
+      align-self: flex-end;
+      border-color: #ffffff;
+      background: #111111;
+    }
+
+    .msg.citizen, .msg.rescuer {
+      align-self: flex-start;
+      border-color: #555555;
+      background: #000000;
+    }
+
+    .chat-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .mono {
+      font-family: monospace;
+    }
+
+    /* Comparison side-by-side photo frame */
+    .kyc-comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 8px 0;
+    }
+
+    .kyc-photo-box {
+      border: 1px solid #333333;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: #080808;
+    }
+
+    .kyc-photo-box img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      border: 1px solid #222222;
+      background: #000000;
+    }
+
+    /* Grab-style smooth marker transition */
+    .leaflet-marker-icon {
+      transition: transform 0.4s linear;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>COMMAND NOC | RESQLINK CENTRAL</h1>
+      <span id="socket-status" style="font-size: 10px; color: #888888;" class="mono">CONNECTING...</span>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-tabs">
+      <button id="tab-btn-dispatch" class="tab-btn active">
+        📡 RADAR DISPATCH <span id="count-dispatch" class="badge-count">0</span>
+      </button>
+      <button id="tab-btn-users" class="tab-btn">
+        👥 USERS DIRECTORY <span id="count-users-total" class="badge-count" style="background:#c084fc;color:#000;">0</span>
+      </button>
+      <button id="tab-btn-kyc" class="tab-btn">
+        🛡️ CITIZEN KYC VERIFICATION <span id="count-kyc-pending" class="badge-count" style="background:#ff3333;color:#fff;">0</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== TAB 1: RADAR DISPATCH ==================== -->
+  <div id="tab-content-dispatch" class="layout-grid">
+    
+    <!-- SIDEBAR: QUEUE -->
+    <div class="sidebar">
+      <div class="card">
+        <label>LIVE EMERGENCY QUEUE</label>
+        <div id="incidents-count" class="mono" style="font-size: 11px; color: #888888;">0 incidents active</div>
+        
+        <!-- Municipality Sector Filter Pills -->
+        <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;">
+          <button id="filter-inc-all" style="font-size: 9px; padding: 4px 6px; flex: 1; background:#fff; color:#000;">ALL</button>
+          <button id="filter-inc-porac" style="font-size: 9px; padding: 4px 6px; flex: 1;">PORAC</button>
+          <button id="filter-inc-santarita" style="font-size: 9px; padding: 4px 6px; flex: 1;">STA. RITA</button>
+          <button id="filter-inc-guagua" style="font-size: 9px; padding: 4px 6px; flex: 1;">GUAGUA</button>
+        </div>
+      </div>
+
+      <div id="incidents-list" style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 12px; color: #555555; text-align: center; padding: 20px;">
+          Waiting for emergency SOS broadcasts...
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN VIEW: 3-POINT TACTICAL RADAR -->
+    <div class="main-view">
+      
+      <div id="no-selection" class="card" style="text-align: center; padding: 40px;">
+        <div style="font-size: 13px; color: #888888;">SELECT AN INCIDENT FROM QUEUE TO ENGAGE RADAR.</div>
+      </div>
+
+      <div id="active-panel" class="hidden" style="display: flex; flex-direction: column; gap: 12px;">
+        
+        <!-- Incident Info Card -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="detail-name" style="font-size: 15px; font-weight: 800;">-</span>
+                <span id="detail-town-badge" class="badge" style="background:#222; border-color:#888;">PORAC</span>
+                <span id="detail-verified-badge" class="badge verified">✓ VERIFIED</span>
+              </div>
+              <div id="detail-meta" class="mono" style="font-size: 11px; color: #888888; margin-top: 2px;">ID: - | PHONE: -</div>
+            </div>
+            <span id="detail-badge" class="badge">PENDING</span>
+          </div>
+
+          <div id="detail-desc" style="font-size: 12px; color: #cccccc;">
+            -
+          </div>
+
+          <!-- Photo Attachment Preview -->
+          <div id="photo-preview-box" class="hidden">
+            <label>ATTACHED INCIDENT PHOTO</label>
+            <img id="detail-photo" src="" alt="Incident Photo" style="width: 100%; max-height: 180px; object-fit: cover; border: 1px solid #444; margin-top: 4px;" />
+          </div>
+
+          <!-- Actions -->
+          <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <button id="btn-accept" class="btn-accept" style="flex: 1;">ACCEPT & DISPATCH RESCUER</button>
+            <button id="btn-reject" class="btn-reject" style="width: 100px;">REJECT</button>
+          </div>
+        </div>
+
+        <!-- Central 3-Point Tactical Map -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <label>TACTICAL RADAR • SCOPE: PORAC | STA. RITA | GUAGUA</label>
+            <div style="display: flex; gap: 4px;">
+              <button id="map-jump-tri" style="font-size: 9px; padding: 2px 6px;">🎯 TRI-TOWN</button>
+              <button id="map-jump-porac" style="font-size: 9px; padding: 2px 6px;">PORAC</button>
+              <button id="map-jump-santarita" style="font-size: 9px; padding: 2px 6px;">STA. RITA</button>
+              <button id="map-jump-guagua" style="font-size: 9px; padding: 2px 6px;">GUAGUA</button>
+            </div>
+            <span id="telemetry-hud" class="mono" style="font-size: 11px; color: #ffffff;">SPEED: 0 km/h | 1Hz STREAM</span>
+          </div>
+          <div id="map"></div>
+        </div>
+
+        <!-- In-App Radio Chat -->
+        <div class="card">
+          <label>DISPATCH RADIO TRANSCRIPT</label>
+          <div id="chat-box" class="chat-box">
+            <div style="font-size: 11px; color: #555555; text-align: center;">Radio channel online.</div>
+          </div>
+          <div class="chat-row">
+            <input type="text" id="chat-input" placeholder="Type dispatch order..." style="background:#000;border:1px solid #444;color:#fff;padding:8px;font-size:12px;flex:1;" />
+            <button id="btn-send-chat" style="padding: 8px 14px;">SEND</button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ==================== TAB 2: USERS DIRECTORY ==================== -->
+  <div id="tab-content-users" class="card hidden" style="flex: 1; overflow-y: auto;">
+    
+    <!-- User Stats HUD -->
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 12px;">
+      <div style="border: 1px solid #333; padding: 10px; background: #080808;">
+        <label>TOTAL USERS</label>
+        <div id="u-stat-total" class="mono" style="font-size: 18px; font-weight: 900; margin-top: 2px;">0</div>
+      </div>
+      <div style="border: 1px solid #c084fc; padding: 10px; background: #0f0814;">
+        <label style="color:#c084fc;">📍 PORAC</label>
+        <div id="u-stat-porac" class="mono" style="font-size: 18px; font-weight: 900; color:#c084fc; margin-top: 2px;">0</div>
+      </div>
+      <div style="border: 1px solid #38bdf8; padding: 10px; background: #081018;">
+        <label style="color:#38bdf8;">📍 SANTA RITA</label>
+        <div id="u-stat-santarita" class="mono" style="font-size: 18px; font-weight: 900; color:#38bdf8; margin-top: 2px;">0</div>
+      </div>
+      <div style="border: 1px solid #34d399; padding: 10px; background: #081410;">
+        <label style="color:#34d399;">📍 GUAGUA</label>
+        <div id="u-stat-guagua" class="mono" style="font-size: 18px; font-weight: 900; color:#34d399; margin-top: 2px;">0</div>
+      </div>
+      <div style="border: 1px solid #ffffff; padding: 10px; background: #111;">
+        <label style="color:#fff;">✓ VERIFIED</label>
+        <div id="u-stat-verified" class="mono" style="font-size: 18px; font-weight: 900; color:#fff; margin-top: 2px;">0</div>
+      </div>
+    </div>
+
+    <!-- Filter & Search Bar -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid #222; padding-bottom: 12px; margin-bottom: 12px;">
+      
+      <!-- Municipality Filter -->
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <label style="font-size: 10px;">TOWN:</label>
+        <button id="user-tab-filter-all" style="font-size: 10px; padding: 4px 8px; background:#fff; color:#000;">ALL</button>
+        <button id="user-tab-filter-porac" style="font-size: 10px; padding: 4px 8px;">PORAC</button>
+        <button id="user-tab-filter-santarita" style="font-size: 10px; padding: 4px 8px;">SANTA RITA</button>
+        <button id="user-tab-filter-guagua" style="font-size: 10px; padding: 4px 8px;">GUAGUA</button>
+      </div>
+
+      <!-- Search Input -->
+      <div style="width: 260px;">
+        <input type="text" id="user-tab-search" placeholder="Search name, phone, ID..." style="background:#000;border:1px solid #444;color:#fff;padding:6px 10px;font-size:11px;width:100%;" />
+      </div>
+    </div>
+
+    <!-- Users Table -->
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+        <thead>
+          <tr style="border-bottom: 1px solid #333; color: #888; text-align: left;">
+            <th style="padding: 8px;">USER ID</th>
+            <th style="padding: 8px;">FULL NAME</th>
+            <th style="padding: 8px;">MUNICIPALITY</th>
+            <th style="padding: 8px;">BARANGAY / ADDRESS</th>
+            <th style="padding: 8px;">PHONE</th>
+            <th style="padding: 8px;">ID TYPE</th>
+            <th style="padding: 8px;">KYC STATUS</th>
+            <th style="padding: 8px;">REGISTERED</th>
+          </tr>
+        </thead>
+        <tbody id="users-table-body">
+          <tr><td colspan="8" style="text-align: center; padding: 20px; color: #555;">Loading users list...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ==================== TAB 3: CITIZEN KYC VERIFICATION ==================== -->
+  <div id="tab-content-kyc" class="layout-grid hidden">
+    
+    <!-- KYC SIDEBAR -->
+    <div class="sidebar">
+      <div class="card">
+        <label>KYC VERIFICATION QUEUE</label>
+        <div style="display: flex; gap: 6px; margin-top: 4px;">
+          <button id="filter-kyc-all" style="font-size: 10px; padding: 4px 8px; flex: 1;">ALL</button>
+          <button id="filter-kyc-pending" style="font-size: 10px; padding: 4px 8px; flex: 1; background: #fff; color: #000;">PENDING</button>
+          <button id="filter-kyc-verified" style="font-size: 10px; padding: 4px 8px; flex: 1;">APPROVED</button>
+        </div>
+      </div>
+
+      <div id="kyc-list" style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 12px; color: #555555; text-align: center; padding: 20px;">
+          No verification requests submitted.
+        </div>
+      </div>
+    </div>
+
+    <!-- KYC MAIN REVIEW PANEL -->
+    <div class="main-view">
+      <div id="no-kyc-selection" class="card" style="text-align: center; padding: 40px;">
+        <div style="font-size: 13px; color: #888888;">SELECT A CITIZEN FROM THE QUEUE TO REVIEW ID & FACIAL SELFIE.</div>
+      </div>
+
+      <div id="active-kyc-panel" class="hidden" style="display: flex; flex-direction: column; gap: 12px;">
+        
+        <!-- Applicant Info Header -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <span id="kyc-detail-name" style="font-size: 16px; font-weight: 800;">-</span>
+              <div id="kyc-detail-id" class="mono" style="font-size: 11px; color: #888888; margin-top: 2px;">USER ID: -</div>
+            </div>
+            <span id="kyc-detail-badge" class="badge pending">PENDING</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 6px; font-size: 12px;">
+            <div style="border: 1px solid #222; padding: 8px;">
+              <span style="color:#888; font-size:10px; display:block;">MUNICIPALITY</span>
+              <strong id="kyc-detail-municipality" style="color:#c084fc;">-</strong>
+            </div>
+            <div style="border: 1px solid #222; padding: 8px;">
+              <span style="color:#888; font-size:10px; display:block;">MOBILE NUMBER</span>
+              <strong id="kyc-detail-phone">-</strong>
+            </div>
+            <div style="border: 1px solid #222; padding: 8px;">
+              <span style="color:#888; font-size:10px; display:block;">BARANGAY / ADDRESS</span>
+              <strong id="kyc-detail-address">-</strong>
+            </div>
+            <div style="border: 1px solid #222; padding: 8px;">
+              <span style="color:#888; font-size:10px; display:block;">ID TYPE SUBMITTED</span>
+              <strong id="kyc-detail-idtype">-</strong>
+            </div>
+            <div style="border: 1px solid #222; padding: 8px;">
+              <span style="color:#888; font-size:10px; display:block;">SUBMISSION TIME</span>
+              <strong id="kyc-detail-time" class="mono">-</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Side-by-Side Photo Comparison -->
+        <div class="card">
+          <label>IDENTITY MATCH VERIFICATION (GOVERNMENT ID vs LIVE SELFIE)</label>
+          <div class="kyc-comparison-grid">
+            <div class="kyc-photo-box">
+              <span style="font-size: 10px; font-weight: 700; color: #888;">1. GOVERNMENT-ISSUED ID</span>
+              <img id="kyc-preview-id-img" src="" alt="ID Photo" />
+            </div>
+            <div class="kyc-photo-box">
+              <span style="font-size: 10px; font-weight: 700; color: #888;">2. LIVE FACIAL SELFIE</span>
+              <img id="kyc-preview-selfie-img" src="" alt="Facial Selfie" />
+            </div>
+          </div>
+        </div>
+
+        <!-- KYC Decision Controls -->
+        <div class="card">
+          <label>DISPATCHER VERIFICATION DECISION</label>
+          <div style="display: flex; gap: 10px; margin-top: 6px;">
+            <button id="btn-kyc-approve" class="btn-accept" style="flex: 1; padding: 14px;">
+              ✓ APPROVE CITIZEN (MARK AS VERIFIED)
+            </button>
+            <button id="btn-kyc-reject" class="btn-reject" style="width: 160px;">
+              ✕ REJECT APPLICATION
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Socket.io -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script>
+    const socket = io();
+
+    let currentTab = 'dispatch'; // 'dispatch' | 'users' | 'kyc'
+    let incidentsMap = new Map();
+    let usersMap = new Map();
+    let selectedIncident = null;
+    let selectedKycUser = null;
+    let kycFilter = 'PENDING'; // 'ALL' | 'PENDING' | 'VERIFIED'
+    let incSectorFilter = 'all'; // 'all' | 'Porac' | 'Santa Rita' | 'Guagua'
+    let userSectorFilter = 'all'; // 'all' | 'Porac' | 'Santa Rita' | 'Guagua'
+    let userSearchText = '';
+    let map = null;
+
+    let markerBase = null;
+    let markerVictim = null;
+    let markerRescuer = null;
+    let lineRescuerToVictim = null;
+
+    const TOWN_COORDS = {
+      tri: [15.0250, 120.5900],
+      Porac: [15.0689, 120.5400],
+      'Santa Rita': [14.9986, 120.6186],
+      Guagua: [14.9667, 120.6333]
+    };
+
+    // Custom Map Markers
+    const pinBase = L.divIcon({
+      className: '',
+      html: `<div style="width:30px;height:30px;border-radius:4px;background:#111;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff;box-shadow:0 0 10px rgba(255,255,255,0.4);">NOC</div>`,
+      iconSize: [30, 30], iconAnchor: [15, 15]
+    });
+
+    const pinVictim = L.divIcon({
+      className: '',
+      html: `<div style="width:28px;height:28px;border-radius:50%;background:#fff;border:2px solid #000;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#000;box-shadow:0 0 12px rgba(255,255,255,0.5);">SOS</div>`,
+      iconSize: [28, 28], iconAnchor: [14, 14]
+    });
+
+    const pinRescuer = L.divIcon({
+      className: '',
+      html: `<div style="width:32px;height:32px;border-radius:50%;background:#000;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:#fff;box-shadow:0 0 12px rgba(255,255,255,0.5);">🚑</div>`,
+      iconSize: [32, 32], iconAnchor: [16, 16]
+    });
+
+    // Tab Navigation Elements
+    const tabBtnDispatch = document.getElementById('tab-btn-dispatch');
+    const tabBtnUsers = document.getElementById('tab-btn-users');
+    const tabBtnKyc = document.getElementById('tab-btn-kyc');
+    const tabContentDispatch = document.getElementById('tab-content-dispatch');
+    const tabContentUsers = document.getElementById('tab-content-users');
+    const tabContentKyc = document.getElementById('tab-content-kyc');
+    const countDispatch = document.getElementById('count-dispatch');
+    const countUsersTotal = document.getElementById('count-users-total');
+    const countKycPending = document.getElementById('count-kyc-pending');
+    const socketStatus = document.getElementById('socket-status');
+
+    // Incident DOM Elements
+    const incidentsList = document.getElementById('incidents-list');
+    const incidentsCount = document.getElementById('incidents-count');
+    const noSelection = document.getElementById('no-selection');
+    const activePanel = document.getElementById('active-panel');
+    const detailName = document.getElementById('detail-name');
+    const detailTownBadge = document.getElementById('detail-town-badge');
+    const detailVerifiedBadge = document.getElementById('detail-verified-badge');
+    const detailMeta = document.getElementById('detail-meta');
+    const detailBadge = document.getElementById('detail-badge');
+    const detailDesc = document.getElementById('detail-desc');
+    const photoPreviewBox = document.getElementById('photo-preview-box');
+    const detailPhoto = document.getElementById('detail-photo');
+    const btnAccept = document.getElementById('btn-accept');
+    const btnReject = document.getElementById('btn-reject');
+    const telemetryHud = document.getElementById('telemetry-hud');
+    const chatBox = document.getElementById('chat-box');
+    const chatInput = document.getElementById('chat-input');
+    const btnSendChat = document.getElementById('btn-send-chat');
+
+    // Incident Sector Filter Buttons
+    const filterIncAll = document.getElementById('filter-inc-all');
+    const filterIncPorac = document.getElementById('filter-inc-porac');
+    const filterIncSantaRita = document.getElementById('filter-inc-santarita');
+    const filterIncGuagua = document.getElementById('filter-inc-guagua');
+
+    // Users Directory DOM Elements
+    const usersTableBody = document.getElementById('users-table-body');
+    const uStatTotal = document.getElementById('u-stat-total');
+    const uStatPorac = document.getElementById('u-stat-porac');
+    const uStatSantaRita = document.getElementById('u-stat-santarita');
+    const uStatGuagua = document.getElementById('u-stat-guagua');
+    const uStatVerified = document.getElementById('u-stat-verified');
+    const userTabFilterAll = document.getElementById('user-tab-filter-all');
+    const userTabFilterPorac = document.getElementById('user-tab-filter-porac');
+    const userTabFilterSantaRita = document.getElementById('user-tab-filter-santarita');
+    const userTabFilterGuagua = document.getElementById('user-tab-filter-guagua');
+    const userTabSearch = document.getElementById('user-tab-search');
+
+    // KYC DOM Elements
+    const kycList = document.getElementById('kyc-list');
+    const noKycSelection = document.getElementById('no-kyc-selection');
+    const activeKycPanel = document.getElementById('active-kyc-panel');
+    const kycDetailName = document.getElementById('kyc-detail-name');
+    const kycDetailId = document.getElementById('kyc-detail-id');
+    const kycDetailBadge = document.getElementById('kyc-detail-badge');
+    const kycDetailMunicipality = document.getElementById('kyc-detail-municipality');
+    const kycDetailPhone = document.getElementById('kyc-detail-phone');
+    const kycDetailAddress = document.getElementById('kyc-detail-address');
+    const kycDetailIdType = document.getElementById('kyc-detail-idtype');
+    const kycDetailTime = document.getElementById('kyc-detail-time');
+    const kycPreviewIdImg = document.getElementById('kyc-preview-id-img');
+    const kycPreviewSelfieImg = document.getElementById('kyc-preview-selfie-img');
+    const btnKycApprove = document.getElementById('btn-kyc-approve');
+    const btnKycReject = document.getElementById('btn-kyc-reject');
+
+    const filterKycAll = document.getElementById('filter-kyc-all');
+    const filterKycPending = document.getElementById('filter-kyc-pending');
+    const filterKycVerified = document.getElementById('filter-kyc-verified');
+
+    // Map Jump Buttons
+    document.getElementById('map-jump-tri')?.addEventListener('click', () => { if (map) map.setView(TOWN_COORDS.tri, 12); });
+    document.getElementById('map-jump-porac')?.addEventListener('click', () => { if (map) map.setView(TOWN_COORDS.Porac, 14); });
+    document.getElementById('map-jump-santarita')?.addEventListener('click', () => { if (map) map.setView(TOWN_COORDS['Santa Rita'], 14); });
+    document.getElementById('map-jump-guagua')?.addEventListener('click', () => { if (map) map.setView(TOWN_COORDS.Guagua, 14); });
+
+    // 1. Tab Switching
+    function setTab(tab) {
+      currentTab = tab;
+      tabBtnDispatch.classList.toggle('active', tab === 'dispatch');
+      tabBtnUsers.classList.toggle('active', tab === 'users');
+      tabBtnKyc.classList.toggle('active', tab === 'kyc');
+
+      tabContentDispatch.classList.toggle('hidden', tab !== 'dispatch');
+      tabContentUsers.classList.toggle('hidden', tab !== 'users');
+      tabContentKyc.classList.toggle('hidden', tab !== 'kyc');
+
+      if (tab === 'dispatch' && map) {
+        setTimeout(() => map.invalidateSize(), 150);
+      }
+      if (tab === 'users') {
+        renderUsersDirectory();
+      }
+    }
+
+    tabBtnDispatch.addEventListener('click', () => setTab('dispatch'));
+    tabBtnUsers.addEventListener('click', () => setTab('users'));
+    tabBtnKyc.addEventListener('click', () => setTab('kyc'));
+
+    // Incident Sector Filter Handler
+    function updateIncFilterButtons() {
+      const setBtn = (el, active) => {
+        el.style.background = active ? '#fff' : '#000';
+        el.style.color = active ? '#000' : '#fff';
+      };
+      setBtn(filterIncAll, incSectorFilter === 'all');
+      setBtn(filterIncPorac, incSectorFilter === 'Porac');
+      setBtn(filterIncSantaRita, incSectorFilter === 'Santa Rita');
+      setBtn(filterIncGuagua, incSectorFilter === 'Guagua');
+    }
+
+    filterIncAll.addEventListener('click', () => { incSectorFilter = 'all'; updateIncFilterButtons(); renderIncidentsList(); });
+    filterIncPorac.addEventListener('click', () => { incSectorFilter = 'Porac'; updateIncFilterButtons(); renderIncidentsList(); });
+    filterIncSantaRita.addEventListener('click', () => { incSectorFilter = 'Santa Rita'; updateIncFilterButtons(); renderIncidentsList(); });
+    filterIncGuagua.addEventListener('click', () => { incSectorFilter = 'Guagua'; updateIncFilterButtons(); renderIncidentsList(); });
+
+    // Users Directory Sector Filter Handler
+    function updateUserFilterButtons() {
+      const setBtn = (el, active) => {
+        el.style.background = active ? '#fff' : '#000';
+        el.style.color = active ? '#000' : '#fff';
+      };
+      setBtn(userTabFilterAll, userSectorFilter === 'all');
+      setBtn(userTabFilterPorac, userSectorFilter === 'Porac');
+      setBtn(userTabFilterSantaRita, userSectorFilter === 'Santa Rita');
+      setBtn(userTabFilterGuagua, userSectorFilter === 'Guagua');
+    }
+
+    userTabFilterAll.addEventListener('click', () => { userSectorFilter = 'all'; updateUserFilterButtons(); renderUsersDirectory(); });
+    userTabFilterPorac.addEventListener('click', () => { userSectorFilter = 'Porac'; updateUserFilterButtons(); renderUsersDirectory(); });
+    userTabFilterSantaRita.addEventListener('click', () => { userSectorFilter = 'Santa Rita'; updateUserFilterButtons(); renderUsersDirectory(); });
+    userTabFilterGuagua.addEventListener('click', () => { userSectorFilter = 'Guagua'; updateUserFilterButtons(); renderUsersDirectory(); });
+
+    userTabSearch.addEventListener('input', (e) => {
+      userSearchText = e.target.value.trim().toLowerCase();
+      renderUsersDirectory();
+    });
+
+    // KYC Filter Buttons
+    function updateKycFilterButtons() {
+      filterKycAll.style.background = kycFilter === 'ALL' ? '#fff' : '#000';
+      filterKycAll.style.color = kycFilter === 'ALL' ? '#000' : '#fff';
+      filterKycPending.style.background = kycFilter === 'PENDING' ? '#fff' : '#000';
+      filterKycPending.style.color = kycFilter === 'PENDING' ? '#000' : '#fff';
+      filterKycVerified.style.background = kycFilter === 'VERIFIED' ? '#fff' : '#000';
+      filterKycVerified.style.color = kycFilter === 'VERIFIED' ? '#000' : '#fff';
+    }
+
+    filterKycAll.addEventListener('click', () => { kycFilter = 'ALL'; updateKycFilterButtons(); renderKycList(); });
+    filterKycPending.addEventListener('click', () => { kycFilter = 'PENDING'; updateKycFilterButtons(); renderKycList(); });
+    filterKycVerified.addEventListener('click', () => { kycFilter = 'VERIFIED'; updateKycFilterButtons(); renderKycList(); });
+
+    // 2. Socket Handlers
+    socket.on('connect', () => {
+      socketStatus.innerText = 'ONLINE (ACTIVE)';
+      socketStatus.style.color = '#ffffff';
+      socket.emit('admin_get_incidents');
+      socket.emit('admin_get_verifications');
+    });
+
+    socket.on('disconnect', () => {
+      socketStatus.innerText = 'OFFLINE';
+      socketStatus.style.color = '#888888';
+    });
+
+    // 3. Incident List Management
+    socket.on('admin_incidents_list', (list) => {
+      incidentsMap.clear();
+      list.forEach(i => incidentsMap.set(i.id, i));
+      renderIncidentsList();
+    });
+
+    socket.on('new_incident_alert', (inc) => {
+      incidentsMap.set(inc.id, inc);
+      renderIncidentsList();
+    });
+
+    socket.on('admin_incident_updated', (inc) => {
+      incidentsMap.set(inc.id, inc);
+      renderIncidentsList();
+      if (selectedIncident && selectedIncident.id === inc.id) {
+        selectIncident(inc);
+      }
+    });
+
+    function renderIncidentsList() {
+      const all = Array.from(incidentsMap.values()).reverse();
+      incidentsCount.innerText = `${all.length} incidents logged`;
+      const activeCount = all.filter(i => ['PENDING', 'ACCEPTED', 'EN_ROUTE', 'ON_SCENE'].includes(i.status)).length;
+      countDispatch.innerText = activeCount;
+
+      let items = all;
+      if (incSectorFilter !== 'all') {
+        items = all.filter(i => (i.municipality || 'Porac') === incSectorFilter);
+      }
+
+      if (items.length === 0) {
+        incidentsList.innerHTML = `<div style="font-size: 12px; color: #555555; text-align: center; padding: 20px;">No incidents in ${incSectorFilter === 'all' ? 'any town' : incSectorFilter}.</div>`;
+        return;
+      }
+
+      incidentsList.innerHTML = '';
+      items.forEach(inc => {
+        const div = document.createElement('div');
+        div.className = `list-item ${selectedIncident && selectedIncident.id === inc.id ? 'selected' : ''}`;
+        div.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <strong style="font-size:13px;">${inc.name}</strong>
+            <span class="badge ${['ACCEPTED','EN_ROUTE','ON_SCENE'].includes(inc.status) ? 'accepted' : 'pending'}">${inc.status}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="mono" style="font-size:10px;color:#888;">${inc.id} • ${inc.municipality || 'PORAC'}</span>
+            ${inc.isVerified ? '<span style="font-size:9px;color:#fff;background:#222;border:1px solid #555;padding:1px 4px;">✓ VERIFIED</span>' : ''}
+          </div>
+        `;
+        div.addEventListener('click', () => selectIncident(inc));
+        incidentsList.appendChild(div);
+      });
+    }
+
+    function selectIncident(inc) {
+      selectedIncident = inc;
+      renderIncidentsList();
+
+      noSelection.classList.add('hidden');
+      activePanel.classList.remove('hidden');
+
+      detailName.innerText = inc.name;
+      detailTownBadge.innerText = (inc.municipality || 'PORAC').toUpperCase();
+      detailMeta.innerText = `ID: ${inc.id} | PHONE: ${inc.phone || 'N/A'}`;
+      detailDesc.innerText = inc.description || 'No description';
+      detailBadge.innerText = inc.status;
+      detailBadge.className = `badge ${['ACCEPTED','EN_ROUTE','ON_SCENE','DONE'].includes(inc.status) ? 'accepted' : 'pending'}`;
+
+      if (inc.isVerified) {
+        detailVerifiedBadge.classList.remove('hidden');
+      } else {
+        detailVerifiedBadge.classList.add('hidden');
+      }
+
+      if (inc.photoUrl) {
+        photoPreviewBox.classList.remove('hidden');
+        detailPhoto.src = inc.photoUrl;
+      } else {
+        photoPreviewBox.classList.add('hidden');
+      }
+
+      initMap(inc);
+    }
+
+    // 4. Tactical Radar Map
+    function initMap(inc) {
+      const baseLat = inc.baseStation?.lat || 15.0250;
+      const baseLng = inc.baseStation?.lng || 120.5900;
+      const victimLat = inc.lat;
+      const victimLng = inc.lng;
+      const rescuerLat = inc.rescuerLat || baseLat;
+      const rescuerLng = inc.rescuerLng || baseLng;
+
+      if (!map) {
+        map = L.map('map').setView([victimLat, victimLng], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          className: 'tactical-dark-tile',
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        markerBase = L.marker([baseLat, baseLng], { icon: pinBase }).addTo(map).bindPopup('CENTRAL NOC (PORAC • STA. RITA • GUAGUA)');
+        markerVictim = L.marker([victimLat, victimLng], { icon: pinVictim }).addTo(map).bindPopup(`VICTIM: ${inc.name} (${inc.municipality || 'Porac'})`);
+        markerRescuer = L.marker([rescuerLat, rescuerLng], { icon: pinRescuer }).addTo(map).bindPopup('RESCUER UNIT');
+
+        lineRescuerToVictim = L.polyline([[rescuerLat, rescuerLng], [victimLat, victimLng]], { color: '#ffffff', weight: 2, dashArray: '4,4' }).addTo(map);
+      } else {
+        markerVictim.setLatLng([victimLat, victimLng]).bindPopup(`VICTIM: ${inc.name} (${inc.municipality || 'Porac'})`);
+        markerRescuer.setLatLng([rescuerLat, rescuerLng]);
+        lineRescuerToVictim.setLatLngs([[rescuerLat, rescuerLng], [victimLat, victimLng]]);
+        map.setView([victimLat, victimLng], 13);
+      }
+
+      setTimeout(() => map.invalidateSize(), 200);
+    }
+
+    socket.on('admin_live_rescuer_position', ({ incidentId, lat, lng, speed }) => {
+      if (selectedIncident && selectedIncident.id === incidentId) {
+        if (markerRescuer) markerRescuer.setLatLng([lat, lng]);
+        if (markerVictim && lineRescuerToVictim) lineRescuerToVictim.setLatLngs([[lat, lng], markerVictim.getLatLng()]);
+        telemetryHud.innerText = `SPEED: ${Math.round((speed || 0) * 3.6)} km/h | RESCUER LIVE MOVING`;
+      }
+    });
+
+    btnAccept.addEventListener('click', () => {
+      if (!selectedIncident) return;
+      socket.emit('admin_accept_incident', { incidentId: selectedIncident.id });
+    });
+
+    btnReject.addEventListener('click', () => {
+      if (!selectedIncident) return;
+      socket.emit('admin_reject_incident', { incidentId: selectedIncident.id });
+    });
+
+    // Chat
+    function sendChat() {
+      const text = chatInput.value.trim();
+      if (!text || !selectedIncident) return;
+      socket.emit('send_chat', { incidentId: selectedIncident.id, sender: 'DISPATCH_NOC', text });
+      chatInput.value = '';
+    }
+
+    btnSendChat.addEventListener('click', sendChat);
+    chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+
+    socket.on('admin_receive_chat', ({ incidentId, message }) => {
+      if (selectedIncident && selectedIncident.id === incidentId) {
+        const div = document.createElement('div');
+        div.className = `msg ${message.sender === 'DISPATCH_NOC' ? 'admin' : 'citizen'}`;
+        div.innerHTML = `<span style="font-size:9px;color:#888;">${message.sender} • ${message.time}</span><br>${message.text}`;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    });
+
+    // 5. Users Directory View
+    function renderUsersDirectory() {
+      const allUsers = Array.from(usersMap.values()).reverse();
+      countUsersTotal.innerText = allUsers.length;
+
+      // Calculate Municipal Breakdown
+      uStatTotal.innerText = allUsers.length;
+      uStatPorac.innerText = allUsers.filter(u => (u.municipality || 'Porac') === 'Porac').length;
+      uStatSantaRita.innerText = allUsers.filter(u => u.municipality === 'Santa Rita').length;
+      uStatGuagua.innerText = allUsers.filter(u => u.municipality === 'Guagua').length;
+      uStatVerified.innerText = allUsers.filter(u => u.status === 'VERIFIED').length;
+
+      let filtered = allUsers;
+      if (userSectorFilter !== 'all') {
+        filtered = filtered.filter(u => (u.municipality || 'Porac') === userSectorFilter);
+      }
+      if (userSearchText) {
+        filtered = filtered.filter(u =>
+          (u.fullName && u.fullName.toLowerCase().includes(userSearchText)) ||
+          (u.id && u.id.toLowerCase().includes(userSearchText)) ||
+          (u.phone && u.phone.includes(userSearchText)) ||
+          (u.address && u.address.toLowerCase().includes(userSearchText))
+        );
+      }
+
+      if (filtered.length === 0) {
+        usersTableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 24px; color: #555;">No registered users found for the selected filter.</td></tr>`;
+        return;
+      }
+
+      usersTableBody.innerHTML = '';
+      filtered.forEach(u => {
+        const town = u.municipality || 'Porac';
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #222';
+        tr.innerHTML = `
+          <td style="padding: 8px;" class="mono">${u.id}</td>
+          <td style="padding: 8px;"><strong>${u.fullName}</strong></td>
+          <td style="padding: 8px;">
+            <span class="badge" style="border-color:${town === 'Porac' ? '#c084fc' : (town === 'Santa Rita' ? '#38bdf8' : '#34d399')}; color:${town === 'Porac' ? '#c084fc' : (town === 'Santa Rita' ? '#38bdf8' : '#34d399')};">
+              📍 ${town.toUpperCase()}
+            </span>
+          </td>
+          <td style="padding: 8px; color: #aaa;">${u.address || 'N/A'}</td>
+          <td style="padding: 8px;" class="mono">${u.phone}</td>
+          <td style="padding: 8px; color: #888;">${u.idType}</td>
+          <td style="padding: 8px;">
+            <span class="badge ${u.status === 'VERIFIED' ? 'verified' : (u.status === 'PENDING' ? 'pending' : 'rejected')}">
+              ${u.status}
+            </span>
+          </td>
+          <td style="padding: 8px; color: #666;" class="mono">${new Date(u.submittedAt).toLocaleDateString()}</td>
+        `;
+        usersTableBody.appendChild(tr);
+      });
+    }
+
+    // 6. KYC Verification Management
+    socket.on('admin_verifications_list', (list) => {
+      usersMap.clear();
+      list.forEach(u => usersMap.set(u.id, u));
+      renderKycList();
+      renderUsersDirectory();
+    });
+
+    socket.on('new_verification_request', (u) => {
+      usersMap.set(u.id, u);
+      renderKycList();
+      renderUsersDirectory();
+    });
+
+    function renderKycList() {
+      const allUsers = Array.from(usersMap.values()).reverse();
+      const pendingCount = allUsers.filter(u => u.status === 'PENDING').length;
+      countKycPending.innerText = pendingCount;
+
+      let filtered = allUsers;
+      if (kycFilter === 'PENDING') filtered = allUsers.filter(u => u.status === 'PENDING');
+      else if (kycFilter === 'VERIFIED') filtered = allUsers.filter(u => u.status === 'VERIFIED');
+
+      if (filtered.length === 0) {
+        kycList.innerHTML = `<div style="font-size: 12px; color: #555555; text-align: center; padding: 20px;">No records matching '${kycFilter}'.</div>`;
+        return;
+      }
+
+      kycList.innerHTML = '';
+      filtered.forEach(u => {
+        const div = document.createElement('div');
+        div.className = `list-item ${selectedKycUser && selectedKycUser.id === u.id ? 'selected' : ''}`;
+        div.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <strong style="font-size:13px;">${u.fullName}</strong>
+            <span class="badge ${u.status === 'VERIFIED' ? 'verified' : (u.status === 'PENDING' ? 'pending' : 'rejected')}">${u.status}</span>
+          </div>
+          <div class="mono" style="font-size:10px;color:#888;">${u.id} • 📍 ${u.municipality || 'PORAC'}</div>
+          <div style="font-size:10px;color:#aaa;">ID: ${u.idType} • ${u.phone}</div>
+        `;
+        div.addEventListener('click', () => selectKycUser(u));
+        kycList.appendChild(div);
+      });
+    }
+
+    function selectKycUser(u) {
+      selectedKycUser = u;
+      renderKycList();
+
+      noKycSelection.classList.add('hidden');
+      activeKycPanel.classList.remove('hidden');
+
+      kycDetailName.innerText = u.fullName;
+      kycDetailId.innerText = `USER ID: ${u.id}`;
+      kycDetailBadge.innerText = u.status;
+      kycDetailBadge.className = `badge ${u.status === 'VERIFIED' ? 'verified' : (u.status === 'PENDING' ? 'pending' : 'rejected')}`;
+      
+      kycDetailMunicipality.innerText = (u.municipality || 'Porac').toUpperCase();
+      kycDetailPhone.innerText = u.phone;
+      kycDetailAddress.innerText = u.address || 'N/A';
+      kycDetailIdType.innerText = u.idType;
+      kycDetailTime.innerText = new Date(u.submittedAt).toLocaleString();
+
+      kycPreviewIdImg.src = u.idPhotoUrl || '';
+      kycPreviewSelfieImg.src = u.selfiePhotoUrl || '';
+
+      if (u.status === 'VERIFIED') {
+        btnKycApprove.innerText = 'ALREADY VERIFIED ✓';
+        btnKycApprove.disabled = true;
+      } else {
+        btnKycApprove.innerText = '✓ APPROVE CITIZEN (MARK AS VERIFIED)';
+        btnKycApprove.disabled = false;
+      }
+    }
+
+    btnKycApprove.addEventListener('click', () => {
+      if (!selectedKycUser) return;
+      socket.emit('admin_approve_user', { userId: selectedKycUser.id });
+      selectedKycUser.status = 'VERIFIED';
+      selectKycUser(selectedKycUser);
+    });
+
+    btnKycReject.addEventListener('click', () => {
+      if (!selectedKycUser) return;
+      const reason = prompt('Please enter the reason for rejection (e.g. Blurry ID, Face did not match ID):', 'Photo was blurry or did not match ID');
+      if (reason) {
+        socket.emit('admin_reject_user', { userId: selectedKycUser.id, reason });
+        selectedKycUser.status = 'REJECTED';
+        selectedKycUser.rejectionReason = reason;
+        selectKycUser(selectedKycUser);
+      }
+    });
+
+    // Boot
+    updateIncFilterButtons();
+    updateUserFilterButtons();
+    updateKycFilterButtons();
+  </script>
+</body>
+</html>

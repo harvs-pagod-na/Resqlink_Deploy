@@ -1,0 +1,10 @@
+flask>=3.0.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+Pillow>=10.0.0
+urllib3>=2.0.0
+easyocr>=1.7.0
+opencv-python>=4.8.0
+gunicorn>=21.2.0
+deepface>=0.0.84
+tf-keras>=2.15.0

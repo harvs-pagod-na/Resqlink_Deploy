@@ -1,0 +1,6 @@
+{"level":"info","message":"✅ Socket.IO initialized","timestamp":"2026-07-19 23:59:58"}
+{"level":"debug","message":"Executing (default): SELECT 1+1 AS result","timestamp":"2026-07-19 23:59:59"}
+{"level":"info","message":"✅ MySQL database connected","timestamp":"2026-07-19 23:59:59"}
+{"level":"info","message":"🚀 GAWAN KE API running on port 3000","timestamp":"2026-07-19 23:59:59"}
+{"level":"info","message":"📡 Socket.IO ready","timestamp":"2026-07-19 23:59:59"}
+{"level":"info","message":"🌐 ENV: development","timestamp":"2026-07-19 23:59:59"}

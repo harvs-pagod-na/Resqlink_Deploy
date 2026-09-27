@@ -1,0 +1,12 @@
+{
+  "extraPaths": [
+    "ai-service",
+    "ai-service/routes"
+  ],
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false,
+  "reportUndefinedVariable": false,
+  "reportUnusedImport": false,
+  "reportGeneralTypeIssues": false,
+  "typeCheckingMode": "off"
+}
