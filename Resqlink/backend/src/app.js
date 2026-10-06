@@ -46,7 +46,17 @@ app.use('/api/', apiLimiter);
 const uploadsDir = path.join(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadsDir));
 
-// Health Check Endpoints
+// Root & Health Check Endpoints
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    service: 'RESQLINK Emergency Response System - API Backend',
+    version: '1.0.0',
+    documentation: '/api/health',
+    time: new Date().toISOString()
+  });
+});
+
 app.get(['/health', '/api/health'], (req, res) => {
   res.json({ status: 'ok', service: 'RESQLINK Backend', time: new Date().toISOString() });
 });
