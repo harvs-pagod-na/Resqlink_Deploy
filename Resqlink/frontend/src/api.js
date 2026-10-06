@@ -9,6 +9,11 @@ const getBaseURL = () => {
     return cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`;
   }
 
+  // When deployed on Vercel, connect directly to Render backend
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    return 'https://resqlink-backend-4bwq.onrender.com/api';
+  }
+
   // Local development fallback
   return '/api';
 };

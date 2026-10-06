@@ -10,13 +10,16 @@ export const getServerBaseUrl = () => {
     return import.meta.env.VITE_API_URL.trim().replace(/\/api\/?$/, '').replace(/\/+$/, '');
   }
   if (typeof window !== 'undefined') {
+    if (window.location.hostname.includes('vercel.app')) {
+      return 'https://resqlink-backend-4bwq.onrender.com';
+    }
     if (window.location.port === '5173') {
       // Local Vite dev proxy handles /uploads and /api
       return '';
     }
     return `http://${window.location.hostname}:3000`;
   }
-  return 'http://localhost:3000';
+  return 'https://resqlink-backend-4bwq.onrender.com';
 };
 
 export const getFileUrl = (path) => {
@@ -34,12 +37,15 @@ export const getSocketUrl = () => {
   if (import.meta.env.VITE_SOCKET_URL) {
     return import.meta.env.VITE_SOCKET_URL.trim();
   }
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    return 'https://resqlink-backend-4bwq.onrender.com';
+  }
   const serverBase = getServerBaseUrl();
   if (serverBase) return serverBase;
   if (typeof window !== 'undefined') {
     if (window.location.port === '5173') return window.location.origin;
     return `http://${window.location.hostname}:3000`;
   }
-  return 'http://localhost:3000';
+  return 'https://resqlink-backend-4bwq.onrender.com';
 };
 
