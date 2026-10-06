@@ -1,6 +1,7 @@
 const { ResqRequest, User, Profile, Notification, IncidentTrackingLog, sequelize } = require('../models');
 const { generatePresignedUploadUrl } = require('../services/s3Service');
 const { getAdminJurisdiction } = require('../utils/jurisdiction');
+const { handleLiveLocationAndProgression } = require('../services/stageProgressionService');
 const fs = require('fs');
 const path = require('path');
 const { Op } = require('sequelize');
@@ -148,7 +149,7 @@ exports.createResqRequest = async (req, res) => {
     const safeType = VALID_TYPES.includes(emergency_type) ? emergency_type : 'Medical';
 
     const VALID_SEVERITIES = ['Critical', 'High', 'Moderate', 'Low'];
-    const safeSeverity = VALID_SEVERITIES.includes(severity_level) ? severity_level : 'High';
+    const safeSeverity = 'Critical';
 
     const VALID_AGENCIES = ['MDRRMO', 'PNP', 'BFP', 'Multi-Agency', 'Unassigned'];
     const safeAgency = VALID_AGENCIES.includes(determinedAgency) ? determinedAgency : 'MDRRMO';
@@ -214,6 +215,20 @@ exports.createResqRequest = async (req, res) => {
       io.to('role_mdrrmo_admin').emit('emergency:new', fullRequest);
       io.to('role_pnp_responder').emit('emergency:new', fullRequest);
       io.to('role_bfp_responder').emit('emergency:new', fullRequest);
+    }
+
+    // Persistent system notification for administrators
+    try {
+      await Notification.create({
+        receiver_id: null,
+        sender_id: userId,
+        target_group: 'admin',
+        type: 'critical_emergency',
+        title: '🚨 NEW INCOMING SOS EMERGENCY',
+        message: `New SOS Emergency reported by ${reporterFullName || 'Citizen'} in ${validTown}: ${safeType}. Incident ID: #${resq.id}. Status: PENDING. Assign a dispatcher to manage response.`,
+      });
+    } catch (notifErr) {
+      console.warn('[Notification SOS alert non-fatal]:', notifErr.message);
     }
 
     return res.status(201).json({
@@ -640,7 +655,47 @@ exports.dispatchResqRequest = async (req, res) => {
     }
 
     const previousStatus = resq.status;
+    const previousSubadminId = resq.assigned_subadmin_id;
     const now = new Date();
+    const requestedStatus = status || resq.status;
+    const isOverride = req.body.force_override === true || req.body.manual_override === true || req.user.role === 'super_admin';
+
+    // Workflow Rule Validation Enforcement
+    if (!isOverride && status && status !== previousStatus) {
+      if (requestedStatus === 'Responder Dispatched') {
+        const hasResponder = (assigned_responder_id || resq.assigned_responder_id || responder_name || resq.responder_name);
+        if (!hasResponder) {
+          return res.status(400).json({
+            success: false,
+            message: 'Validation Error: An emergency cannot be dispatched without an assigned responder unit.',
+          });
+        }
+      }
+      if (requestedStatus === 'En Route') {
+        if (!['Responder Dispatched', 'Dispatched', 'Accepted'].includes(previousStatus)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Validation Error: Incident must be dispatched before transitioning to En Route.',
+          });
+        }
+      }
+      if (requestedStatus === 'Arrived') {
+        if (!['En Route', 'Responder Dispatched', 'Dispatched'].includes(previousStatus)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Validation Error: Responder must be En Route before marking Arrived.',
+          });
+        }
+      }
+      if (requestedStatus === 'Completed') {
+        if (!['Arrived', 'On Scene', 'In Progress', 'En Route'].includes(previousStatus)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Validation Error: Incident cannot be completed without units arriving at the scene.',
+          });
+        }
+      }
+    }
 
     if (status) resq.status = status;
     if (target_agency) resq.target_agency = target_agency;
@@ -665,6 +720,21 @@ exports.dispatchResqRequest = async (req, res) => {
         resq.responder_lat = pLat;
         resq.responder_lng = pLng;
       }
+    }
+
+    // If dispatched and no responder coordinate set yet, initialize from municipality sector base
+    if ((status === 'Dispatched' || status === 'Responder Dispatched') && (!resq.responder_lat || parseFloat(resq.responder_lat) === 0)) {
+      const town = resq.assigned_sector || resq.municipality || 'Santa Rita';
+      const townCenters = {
+        'Santa Rita': { lat: 14.9986, lng: 120.6186 },
+        'Porac': { lat: 15.0683, lng: 120.5422 },
+        'Guagua': { lat: 14.9664, lng: 120.6338 },
+        'Angeles': { lat: 15.145, lng: 120.5887 },
+        'San Fernando': { lat: 15.034, lng: 120.686 },
+      };
+      const fallback = townCenters[town] || { lat: 14.9986, lng: 120.6186 };
+      resq.responder_lat = fallback.lat;
+      resq.responder_lng = fallback.lng;
     }
 
     // Exact milestone timestamping for response-duration metrics
@@ -705,10 +775,28 @@ exports.dispatchResqRequest = async (req, res) => {
       actor_role: actorRole,
       previous_status: previousStatus,
       new_status: resq.status,
-      notes: dispatcher_notes || resolution_notes || `Status updated to ${resq.status}`,
+      notes: req.body.override_reason
+        ? `[MANUAL OVERRIDE] ${req.body.override_reason}`
+        : (req.body.manual_override ? `[MANUAL STAGE UPDATE] Dispatcher manually set stage to ${resq.status}. ${dispatcher_notes || ''}` : (dispatcher_notes || resolution_notes || `Status updated to ${resq.status}`)),
       latitude: resq.responder_lat || resq.latitude,
       longitude: resq.responder_lng || resq.longitude,
     });
+
+    // Persistent assignment notification for assigned Sub-Admin / Dispatcher
+    if (resq.assigned_subadmin_id && resq.assigned_subadmin_id !== previousSubadminId) {
+      try {
+        await Notification.create({
+          receiver_id: resq.assigned_subadmin_id,
+          sender_id: actorId,
+          target_group: 'specific',
+          type: 'assignment_alert',
+          title: '🚨 New Emergency Assignment Received',
+          message: `You have been assigned to manage Incident #${resq.id} in ${resq.assigned_sector || resq.municipality || 'Operations'} by Command Admin.`,
+        });
+      } catch (notifErr) {
+        console.warn('[Notification subadmin assignment non-fatal]:', notifErr.message);
+      }
+    }
 
     const updatedFull = await ResqRequest.findByPk(id, {
       include: [
@@ -884,7 +972,7 @@ exports.subadminConfirmAssignment = async (req, res) => {
       const confirmPayload = {
         incidentId: resq.id,
         subadminId: actorId,
-        subadminName,
+        subadminName: subAdminName,
         sector: sectorName,
         request: updatedFull,
         message: `✓ Sub-Admin ${subAdminName} (${sectorName} Sector) confirmed Emergency #${resq.id}!`,
@@ -971,7 +1059,34 @@ exports.getSubAdmins = async (req, res) => {
 // 6.3 Query Available Responders for Hub Assignment
 exports.getAvailableResponders = async (req, res) => {
   try {
-    const { municipality, department } = req.query;
+    const { municipality, department, only_available } = req.query;
+
+    // Check active requests to identify busy responders
+    const activeRequests = await ResqRequest.findAll({
+      where: {
+        status: {
+          [Op.in]: [
+            'Assigned',
+            'Accepted',
+            'Responder Dispatched',
+            'Dispatched',
+            'En Route',
+            'On Scene',
+            'Arrived',
+            'In Progress',
+          ],
+        },
+        assigned_responder_id: { [Op.ne]: null },
+      },
+      attributes: ['id', 'assigned_responder_id', 'status', 'emergency_type', 'municipality'],
+    });
+
+    const busyMap = new Map();
+    activeRequests.forEach((reqItem) => {
+      if (reqItem.assigned_responder_id) {
+        busyMap.set(reqItem.assigned_responder_id, reqItem);
+      }
+    });
 
     const responders = await User.findAll({
       where: {
@@ -999,6 +1114,9 @@ exports.getAvailableResponders = async (req, res) => {
 
       const town = u.profile?.city || (email.includes('porac') ? 'Porac' : email.includes('santarita') ? 'Santa Rita' : email.includes('guagua') ? 'Guagua' : 'Porac');
 
+      const activeIncident = busyMap.get(u.id);
+      const isAvailable = !activeIncident && u.is_active;
+
       return {
         id: u.id,
         email: u.email,
@@ -1011,6 +1129,9 @@ exports.getAvailableResponders = async (req, res) => {
         headline: u.profile?.headline || `${dept} Responder`,
         lat: u.profile?.latitude,
         lng: u.profile?.longitude,
+        is_available: isAvailable,
+        status: isAvailable ? 'Available' : 'Busy',
+        active_incident_id: activeIncident ? activeIncident.id : null,
       };
     });
 
@@ -1021,7 +1142,11 @@ exports.getAvailableResponders = async (req, res) => {
       filtered = filtered.filter(r => r.municipality.toLowerCase() === targetTown.toLowerCase());
     }
     if (department && department !== 'all') {
-      filtered = filtered.filter(r => r.department.toLowerCase() === department.toLowerCase());
+      const depts = department.split(',').map(d => d.trim().toLowerCase());
+      filtered = filtered.filter(r => depts.includes(r.department.toLowerCase()));
+    }
+    if (only_available === 'true' || only_available === true) {
+      filtered = filtered.filter(r => r.is_available);
     }
 
     return res.json({
@@ -1038,43 +1163,37 @@ exports.getAvailableResponders = async (req, res) => {
 exports.updateResponderLocation = async (req, res) => {
   try {
     const { id } = req.params;
-    const { responder_lat, responder_lng } = req.body;
+    const { responder_lat, responder_lng, speed, heading } = req.body;
 
     if (!responder_lat || !responder_lng) {
       return res.status(400).json({ success: false, message: 'Latitude and longitude are required.' });
     }
 
-    const resq = await ResqRequest.findByPk(id);
-    if (!resq) {
-      return res.status(404).json({ success: false, message: 'Emergency request not found' });
-    }
-
-    resq.responder_lat = parseFloat(responder_lat);
-    resq.responder_lng = parseFloat(responder_lng);
-    await resq.save();
-
-    const locationPayload = {
-      request_id: resq.id,
-      user_id: resq.user_id,
-      status: resq.status,
-      responder_lat: parseFloat(responder_lat),
-      responder_lng: parseFloat(responder_lng),
-      responder_unit: resq.responder_unit,
-      updatedAt: new Date().toISOString(),
-    };
-
     const io = req.app.get('io');
-    if (io) {
-      io.to(`resq_${resq.id}`).emit(`resq_live_location_${resq.id}`, locationPayload);
-      io.emit('resq_live_location', locationPayload);
-      io.emit('responder:location_update', locationPayload);
-      io.to(`user_${resq.user_id}`).emit('resq_live_location', locationPayload);
+    const result = await handleLiveLocationAndProgression({
+      requestId: id,
+      responderLat: responder_lat,
+      responderLng: responder_lng,
+      speed: speed || 0,
+      heading: heading || 0,
+      actorInfo: {
+        userId: req.user?.id,
+        name: req.user?.profile?.full_name || req.user?.email,
+        role: req.user?.role || 'responder',
+      },
+      io,
+    });
+
+    if (!result) {
+      return res.status(404).json({ success: false, message: 'Emergency request not found or coordinates invalid.' });
     }
 
     return res.json({
       success: true,
       message: 'Responder location updated in real time.',
-      location: locationPayload,
+      location: result.location,
+      statusChanged: result.statusChanged,
+      status: result.request.status,
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

@@ -762,5 +762,66 @@ exports.createSubAdmin = async (req, res) => {
   }
 };
 
+exports.createResponder = async (req, res) => {
+  try {
+    const { email, password, first_name, last_name, phone_number, department, municipality, unit_name, badge_number } = req.body;
+
+    if (!email || !password || !first_name || !last_name) {
+      return res.status(400).json({ success: false, message: 'Email, password, first name, and last name are required.' });
+    }
+
+    const existing = await User.findOne({ where: { email } });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'An account with this email already exists.' });
+    }
+
+    const validDept = ['Medical', 'Police', 'Fire', 'Rescue'].includes(department) ? department : 'Medical';
+    const validTown = ['Porac', 'Santa Rita', 'Guagua'].includes(municipality) ? municipality : 'Porac';
+
+    const password_hash = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      email,
+      password_hash,
+      role: 'responder',
+      phone_number: phone_number || null,
+      is_verified: true,
+      verification_status: 'approved',
+      agency: validDept,
+      badge_or_unit_id: badge_number || null,
+    });
+
+    await Profile.create({
+      user_id: user.id,
+      first_name,
+      last_name,
+      full_name: `${first_name} ${last_name}`.trim(),
+      city: validTown,
+      province: 'Pampanga',
+      address: `${validTown}, Pampanga`,
+      headline: `${validDept} Emergency Responder - ${validTown}, Pampanga`,
+      responder_unit: unit_name || `${validTown} ${validDept} Unit`,
+      responder_badge_number: badge_number || null,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: `${validDept} first responder deployed successfully for ${validTown}!`,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        agency: user.agency,
+        first_name,
+        last_name,
+        municipality: validTown,
+      },
+    });
+  } catch (error) {
+    console.error('[CREATE RESPONDER ERROR]', error);
+    return res.status(500).json({ success: false, message: 'Failed to create First Responder account.', error: error.message });
+  }
+};
+
+
 
 

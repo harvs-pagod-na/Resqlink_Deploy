@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import api from '../api';
 import { io } from 'socket.io-client';
+import { EmergencyBadges, CriticalBadge, CriticalWarningLogo, getIncidentEmergencies, RESCUE_DEPARTMENTS, mapEmergencyCategoriesToDepartments, EmergencyStatusTracker, EMERGENCY_STATUS_STEPS } from '../utils/emergencyHelper';
 
 const SOCKET_URL = typeof window !== 'undefined' 
   ? (window.location.port === '5173' ? window.location.origin : (import.meta.env.VITE_API_URL?.replace('/api', '') || `http://${window.location.hostname}:3000`))
@@ -96,10 +97,21 @@ function DispatchModal({ request, onClose, onSave }) {
   const [subadminsList, setSubadminsList] = useState([]);
   const [loadingSubadmins, setLoadingSubadmins] = useState(false);
 
-  const initialDept = request.assigned_department || (
-    request.emergency_type === 'Fire' ? 'Fire' :
-    request.emergency_type === 'Crime/Police' ? 'Police' : 'Medical'
-  );
+  // 1. Automatically identify emergency categories and map to required departments
+  const incidentCategories = useMemo(() => getIncidentEmergencies(request), [request]);
+  const autoMappedDepts = useMemo(() => mapEmergencyCategoriesToDepartments(incidentCategories), [incidentCategories]);
+
+  // Initial department selection: use previously saved or auto-mapped from citizen categories
+  const initialDepts = useMemo(() => {
+    if (request.assigned_department) {
+      const parts = request.assigned_department.split(',').map((s) => s.trim()).filter(Boolean);
+      if (parts.length > 0) return parts;
+    }
+    return autoMappedDepts;
+  }, [request.assigned_department, autoMappedDepts]);
+
+  const [selectedDepartments, setSelectedDepartments] = useState(initialDepts);
+  const [selectedRespondersByDept, setSelectedRespondersByDept] = useState({});
 
   const initialSector = request.assigned_sector || request.municipality || 'Santa Rita';
 
@@ -107,8 +119,8 @@ function DispatchModal({ request, onClose, onSave }) {
     status: request.status === 'Pending' ? 'Assigned' : (request.status === 'Accepted' ? 'Responder Dispatched' : request.status),
     assigned_sector: initialSector,
     assigned_subadmin_id: request.assigned_subadmin_id || null,
-    assigned_department: initialDept,
-    target_agency: request.target_agency || (initialDept === 'Fire' ? 'BFP' : initialDept === 'Police' ? 'PNP' : 'MDRRMO'),
+    assigned_department: initialDepts.join(', '),
+    target_agency: initialDepts.map(d => d === 'Fire' ? 'BFP' : d === 'Police' ? 'PNP' : 'MDRRMO').join(' + '),
     assigned_responder_id: request.assigned_responder_id || null,
     responder_name: request.responder_name || '',
     responder_phone: request.responder_phone || '',
@@ -127,7 +139,7 @@ function DispatchModal({ request, onClose, onSave }) {
 
   useEffect(() => {
     fetchResponders();
-  }, [form.assigned_sector, form.assigned_department]);
+  }, [form.assigned_sector]);
 
   const fetchSubAdmins = async () => {
     setLoadingSubadmins(true);
@@ -151,7 +163,7 @@ function DispatchModal({ request, onClose, onSave }) {
     setLoadingResponders(true);
     try {
       const town = form.assigned_sector || request.municipality || 'Santa Rita';
-      const res = await api.get(`/resq/responders?municipality=${town}&department=${form.assigned_department}`);
+      const res = await api.get(`/resq/responders?municipality=${town}&department=all`);
       if (res.data?.success) {
         setRespondersList(res.data.responders || []);
       }
@@ -162,23 +174,100 @@ function DispatchModal({ request, onClose, onSave }) {
     }
   };
 
-  const handleSelectResponder = (responderId) => {
+  // Synchronize form fields whenever selected departments or units change
+  const syncDispatchPayload = (deptMap, depts) => {
+    const chosenUnits = depts.map((d) => deptMap[d]).filter(Boolean);
+    if (!chosenUnits.length) return;
+
+    const primaryUnit = chosenUnits[0];
+    const combinedAgencies = Array.from(new Set(chosenUnits.map((u) => u.department === 'Fire' ? 'BFP' : u.department === 'Police' ? 'PNP' : 'MDRRMO'))).join(' + ');
+    const combinedNames = chosenUnits.map((u) => u.name).join(' & ');
+    const combinedUnits = chosenUnits.map((u) => `${u.unit} (${u.badge})`).join(' + ');
+    const combinedPhones = chosenUnits.map((u) => `${u.phone} [${u.department}]`).join(' / ');
+
+    const town = form.assigned_sector || request.municipality || 'Santa Rita';
+    const autoNotes = `[AUTO-DISPATCH] Multi-agency emergency response deployed for ${incidentCategories.join(' + ').toUpperCase()} in ${town} Sector. Deployed units: ${chosenUnits.map((u) => u.unit).join(' & ')} coordinated for immediate field intervention.`;
+
+    setForm((f) => ({
+      ...f,
+      assigned_department: depts.join(', '),
+      target_agency: combinedAgencies,
+      assigned_responder_id: primaryUnit.id,
+      responder_name: combinedNames,
+      responder_unit: combinedUnits,
+      responder_phone: combinedPhones,
+      responder_lat: primaryUnit.lat || f.responder_lat,
+      responder_lng: primaryUnit.lng || f.responder_lng,
+      dispatcher_notes: (!f.dispatcher_notes || f.dispatcher_notes.startsWith('[AUTO-DISPATCH]')) ? autoNotes : f.dispatcher_notes,
+    }));
+  };
+
+  // Automatic Data-Driven Selection of Available Units per Department
+  useEffect(() => {
+    if (!respondersList.length || !selectedDepartments.length) return;
+
+    let changed = false;
+    const nextMap = { ...selectedRespondersByDept };
+
+    // Prune unselected departments
+    Object.keys(nextMap).forEach((dept) => {
+      if (!selectedDepartments.includes(dept)) {
+        delete nextMap[dept];
+        changed = true;
+      }
+    });
+
+    // Auto-select best available unit for each active department
+    selectedDepartments.forEach((dept) => {
+      const existing = nextMap[dept];
+      const stillValid = existing && respondersList.some((r) => r.id === existing.id && r.department.toLowerCase() === dept.toLowerCase());
+
+      if (!stillValid) {
+        const deptUnits = respondersList.filter((r) => r.department.toLowerCase() === dept.toLowerCase());
+        // Prioritize units with is_available === true (not on active mission)
+        const availableUnit = deptUnits.find((r) => r.is_available) || deptUnits[0];
+        if (availableUnit) {
+          nextMap[dept] = availableUnit;
+          changed = true;
+        }
+      }
+    });
+
+    if (changed || Object.keys(nextMap).length > 0) {
+      setSelectedRespondersByDept(nextMap);
+      syncDispatchPayload(nextMap, selectedDepartments);
+    }
+  }, [respondersList, selectedDepartments, form.assigned_sector]);
+
+  // Review/Change unit selection per department
+  const handleSelectResponderForDept = (dept, responderId) => {
     if (!responderId) {
-      setForm(f => ({ ...f, assigned_responder_id: null }));
+      const nextMap = { ...selectedRespondersByDept };
+      delete nextMap[dept];
+      setSelectedRespondersByDept(nextMap);
+      syncDispatchPayload(nextMap, selectedDepartments);
       return;
     }
-    const r = respondersList.find(x => x.id === parseInt(responderId));
-    if (r) {
-      setForm(f => ({
-        ...f,
-        assigned_responder_id: r.id,
-        responder_name: r.name,
-        responder_phone: r.phone || f.responder_phone,
-        responder_unit: r.unit || f.responder_unit,
-        assigned_department: r.department || f.assigned_department,
-        target_agency: r.department === 'Fire' ? 'BFP' : r.department === 'Police' ? 'PNP' : 'MDRRMO',
-      }));
+    const unit = respondersList.find((r) => r.id === parseInt(responderId));
+    if (unit) {
+      const nextMap = { ...selectedRespondersByDept, [dept]: unit };
+      setSelectedRespondersByDept(nextMap);
+      syncDispatchPayload(nextMap, selectedDepartments);
     }
+  };
+
+  // Toggle department inclusion in multi-agency dispatch
+  const toggleDepartment = (deptId) => {
+    setSelectedDepartments((prev) => {
+      let next;
+      if (prev.includes(deptId)) {
+        if (prev.length === 1) return prev; // Keep at least one department active
+        next = prev.filter((d) => d !== deptId);
+      } else {
+        next = [...prev, deptId];
+      }
+      return next;
+    });
   };
 
   const handleSave = async (overrideStatus = null) => {
@@ -234,13 +323,17 @@ function DispatchModal({ request, onClose, onSave }) {
             background: 'rgba(13, 18, 36, 0.8)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '20px' }}>{EMERGENCY_ICONS[request.emergency_type] || '🚨'}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <CriticalWarningLogo size={42} />
             <div>
-              <div style={{ fontWeight: '900', fontSize: '16px', color: '#f8fafc', letterSpacing: '0.5px' }}>
-                DISPATCH COMMAND & INCIDENT DOSSIER #{request.id}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: '900', fontSize: '16px', color: '#f8fafc', letterSpacing: '0.5px' }}>
+                  DISPATCH COMMAND & INCIDENT DOSSIER #{request.id}
+                </span>
+                <EmergencyBadges incident={request} size="medium" />
+                <CriticalBadge size="small" />
               </div>
-              <div className="mono-text" style={{ fontSize: '11px', color: '#94a3b8' }}>
+              <div className="mono-text" style={{ fontSize: '11px', color: '#94a3b8', marginTop: '3px' }}>
                 Logged at: {new Date(request.createdAt).toLocaleString()}
               </div>
             </div>
@@ -252,6 +345,11 @@ function DispatchModal({ request, onClose, onSave }) {
 
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
           
+          {/* Real-Time Step-by-Step Emergency Status Tracker */}
+          <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '14px 16px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <EmergencyStatusTracker incident={request} currentStatus={form.status} />
+          </div>
+
           {/* Top Info Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: request.photo_url ? '1fr 1fr' : '1fr', gap: '14px' }}>
             
@@ -284,15 +382,11 @@ function DispatchModal({ request, onClose, onSave }) {
               <div style={{ color: '#cbd5e1', fontSize: '12.5px', lineHeight: '1.7' }}>
                 <div><b>Full Name:</b> {request.requester?.profile?.first_name || 'Citizen'} {request.requester?.profile?.last_name || ''}</div>
                 <div><b>Phone / Callback:</b> <a href={`tel:${request.contact_number || request.requester?.phone_number}`} style={{ color: '#38bdf8', textDecoration: 'none', fontWeight: '700' }}>{request.contact_number || request.requester?.phone_number || 'N/A'}</a></div>
-                <div><b>Emergency Type:</b> {request.emergency_type}</div>
-                <div>
-                  <b>Priority Level:</b>{' '}
-                  <span style={{
-                    fontSize: '10px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px',
-                    background: sev.bg, color: sev.color, border: `1px solid ${sev.border}`
-                  }}>
-                    {request.severity_level}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', margin: '3px 0' }}>
+                  <b>Emergency Categories:</b> <EmergencyBadges incident={request} size="small" />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '3px 0' }}>
+                  <b>Priority Level:</b> <CriticalBadge size="small" />
                 </div>
                 <div><b>Exact GPS:</b> <span className="mono-text" style={{ color: '#38bdf8' }}>{request.latitude}, {request.longitude}</span></div>
                 <div><b>Spot / Landmark:</b> {request.address_location || 'GPS Location Captured'}</div>
@@ -443,54 +537,142 @@ function DispatchModal({ request, onClose, onSave }) {
 
           {/* 2. Department & Inter-Agency Selector */}
           <div>
-            <label className="form-label">2. SELECT ASSIGNED DEPARTMENT / RESCUE SERVICE</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginTop: '6px' }}>
-              {[
-                { id: 'Medical', label: '🚑 MEDICAL (MDRRMO)', color: '#0ea5e9' },
-                { id: 'Police', label: '🚔 POLICE (PNP)', color: '#818cf8' },
-                { id: 'Fire', label: '🔥 FIRE (BFP)', color: '#f97316' },
-                { id: 'Rescue', label: '🛡️ RESCUE SERVICES', color: '#f43f5e' },
-              ].map((ag) => (
-                <button
-                  type="button"
-                  key={ag.id}
-                  onClick={() => {
-                    set('assigned_department', ag.id);
-                    set('target_agency', ag.id === 'Medical' ? 'MDRRMO' : ag.id === 'Police' ? 'PNP' : ag.id === 'Fire' ? 'BFP' : 'MDRRMO');
-                  }}
-                  style={{
-                    padding: '10px 6px', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer',
-                    background: form.assigned_department === ag.id ? `${ag.color}25` : 'rgba(255,255,255,0.04)',
-                    border: form.assigned_department === ag.id ? `2px solid ${ag.color}` : '1px solid rgba(255,255,255,0.08)',
-                    color: form.assigned_department === ag.id ? ag.color : '#94a3b8',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {ag.label}
-                </button>
-              ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label className="form-label" style={{ marginBottom: 0 }}>
+                2. SELECT ASSIGNED DEPARTMENT / RESCUE SERVICE
+              </label>
+              <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '800' }}>
+                ⚡ AUTO-POPULATED FROM CITIZEN SOS ({selectedDepartments.length} ACTIVE)
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+              {RESCUE_DEPARTMENTS.map((ag) => {
+                const isSelected = selectedDepartments.includes(ag.id);
+                return (
+                  <button
+                    type="button"
+                    key={ag.id}
+                    onClick={() => toggleDepartment(ag.id)}
+                    style={{
+                      padding: '10px 6px',
+                      borderRadius: '8px',
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      background: isSelected ? `${ag.color}25` : 'rgba(255,255,255,0.04)',
+                      border: isSelected ? `2px solid ${ag.color}` : '1px solid rgba(255,255,255,0.08)',
+                      color: isSelected ? ag.color : '#94a3b8',
+                      boxShadow: isSelected ? `0 0 12px ${ag.color}35` : 'none',
+                      transition: 'all 0.15s ease',
+                      position: 'relative',
+                    }}
+                  >
+                    <div>{ag.label}</div>
+                    {isSelected && (
+                      <div style={{ fontSize: '9px', fontWeight: '900', color: ag.color, marginTop: '2px' }}>
+                        ✓ SELECTED
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* 3. Quick Select Registered Responders Dropdown */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-              <label className="form-label">3. AVAILABLE {form.assigned_department.toUpperCase()} UNITS IN {form.assigned_sector?.toUpperCase() || 'HUB'}</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label className="form-label" style={{ marginBottom: 0 }}>
+                {selectedDepartments.length === 1
+                  ? `3. AVAILABLE ${selectedDepartments[0].toUpperCase()} UNITS IN ${(form.assigned_sector || request.municipality || 'SANTA RITA').toUpperCase()}`
+                  : `3. AVAILABLE UNITS IN ${(form.assigned_sector || request.municipality || 'SANTA RITA').toUpperCase()} (${selectedDepartments.join(' + ').toUpperCase()} MULTI-AGENCY)`}
+              </label>
               {loadingResponders && <span style={{ fontSize: '10px', color: '#38bdf8' }}>Loading units...</span>}
             </div>
-            <select
-              className="tactical-input"
-              value={form.assigned_responder_id || ''}
-              onChange={(e) => handleSelectResponder(e.target.value)}
-              style={{ cursor: 'pointer', color: '#38bdf8', fontWeight: '700' }}
-            >
-              <option value="">-- Choose Registered Field Responder Unit (Optional) --</option>
-              {respondersList.map((r) => (
-                <option key={r.id} value={r.id} style={{ background: '#0b1120', color: '#fff' }}>
-                  {r.name} • {r.unit} ({r.badge}) - {r.phone}
-                </option>
-              ))}
-            </select>
+
+            {selectedDepartments.length === 1 ? (
+              <div>
+                <select
+                  className="tactical-input"
+                  value={selectedRespondersByDept[selectedDepartments[0]]?.id || ''}
+                  onChange={(e) => handleSelectResponderForDept(selectedDepartments[0], e.target.value)}
+                  style={{ cursor: 'pointer', color: '#38bdf8', fontWeight: '700' }}
+                >
+                  <option value="">-- Choose Registered Field Responder Unit --</option>
+                  {respondersList
+                    .filter((r) => r.department.toLowerCase() === selectedDepartments[0].toLowerCase())
+                    .map((r) => (
+                      <option key={r.id} value={r.id} style={{ background: '#0b1120', color: r.is_available ? '#fff' : '#f43f5e' }}>
+                        {r.name} • {r.unit} ({r.badge}) - {r.phone} {r.is_available ? '✓ [AVAILABLE]' : '⚠️ [BUSY ON MISSION]'}
+                      </option>
+                    ))}
+                </select>
+                {selectedRespondersByDept[selectedDepartments[0]] && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', fontSize: '11px' }}>
+                    <span style={{
+                      padding: '2px 8px', borderRadius: '4px', fontWeight: '800', fontSize: '10px',
+                      background: selectedRespondersByDept[selectedDepartments[0]].is_available ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)',
+                      color: selectedRespondersByDept[selectedDepartments[0]].is_available ? '#10b981' : '#f43f5e',
+                      border: `1px solid ${selectedRespondersByDept[selectedDepartments[0]].is_available ? 'rgba(16,185,129,0.3)' : 'rgba(244,63,94,0.3)'}`
+                    }}>
+                      ● {selectedRespondersByDept[selectedDepartments[0]].is_available ? 'UNIT AVAILABLE FOR DISPATCH' : 'UNIT CURRENTLY ENGAGED (BUSY)'}
+                    </span>
+                    <span style={{ color: '#94a3b8' }}>
+                      Agency: <b>{selectedRespondersByDept[selectedDepartments[0]].department}</b> • Call: {selectedRespondersByDept[selectedDepartments[0]].phone}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {selectedDepartments.map((dept) => {
+                  const deptConf = RESCUE_DEPARTMENTS.find((d) => d.id === dept) || { color: '#0ea5e9', label: dept };
+                  const assignedUnit = selectedRespondersByDept[dept];
+                  const deptUnits = respondersList.filter((r) => r.department.toLowerCase() === dept.toLowerCase());
+
+                  return (
+                    <div
+                      key={dept}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: `1px solid ${deptConf.color}40`,
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '11.5px', fontWeight: '900', color: deptConf.color }}>
+                          {deptConf.label}
+                        </span>
+                        {assignedUnit && (
+                          <span style={{
+                            padding: '1px 6px', borderRadius: '3px', fontSize: '9.5px', fontWeight: '800',
+                            background: assignedUnit.is_available ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)',
+                            color: assignedUnit.is_available ? '#10b981' : '#f43f5e',
+                            border: `1px solid ${assignedUnit.is_available ? 'rgba(16,185,129,0.4)' : 'rgba(244,63,94,0.4)'}`
+                          }}>
+                            {assignedUnit.is_available ? '✓ AVAILABLE' : '⚠️ BUSY'}
+                          </span>
+                        )}
+                      </div>
+                      <select
+                        className="tactical-input"
+                        value={assignedUnit?.id || ''}
+                        onChange={(e) => handleSelectResponderForDept(dept, e.target.value)}
+                        style={{ cursor: 'pointer', color: '#f8fafc', fontWeight: '700', fontSize: '12px' }}
+                      >
+                        <option value="">-- Choose {dept} Response Unit --</option>
+                        {deptUnits.map((r) => (
+                          <option key={r.id} value={r.id} style={{ background: '#0b1120', color: r.is_available ? '#fff' : '#f43f5e' }}>
+                            {r.name} • {r.unit} ({r.badge}) - {r.phone} {r.is_available ? '✓ [AVAILABLE]' : '⚠️ [BUSY ON MISSION]'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* 4. Operational Status Pipeline */}
@@ -589,15 +771,16 @@ function DispatchModal({ request, onClose, onSave }) {
             {request.status === 'Pending' ? (
               <button
                 onClick={() => handleSave('Assigned')}
-                disabled={saving}
+                disabled={saving || !form.assigned_subadmin_id}
                 className="tactical-btn"
                 style={{
                   flex: 1, justifyContent: 'center', padding: '14px', fontSize: '13px',
                   background: 'linear-gradient(135deg, #0284c7, #0ea5e9)',
-                  boxShadow: '0 0 20px rgba(14,165,233,0.4)'
+                  boxShadow: '0 0 20px rgba(14,165,233,0.4)',
+                  opacity: (!form.assigned_subadmin_id) ? 0.6 : 1
                 }}
               >
-                {saving ? 'ASSIGNING...' : `⚡ ACCEPT & ASSIGN TO ${form.assigned_sector?.toUpperCase()} SUB-ADMIN`}
+                {saving ? 'ASSIGNING DISPATCHER...' : `⚡ ASSIGN DISPATCHER & NOTIFY SUB-ADMIN`}
               </button>
             ) : request.status === 'Accepted' ? (
               <button
@@ -655,12 +838,12 @@ function detectMunicipality(obj) {
   if (obj?.municipality && ['Porac', 'Santa Rita', 'Guagua'].includes(obj.municipality)) {
     return obj.municipality;
   }
-  const str = `${obj?.municipality || ''} ${obj?.city || ''} ${obj?.address_location || ''} ${obj?.address || ''} ${obj?.barangay || ''} ${obj?.requester?.profile?.city || ''} ${obj?.profile?.city || ''} ${obj?.profile?.address || ''}`.toLowerCase();
-  if (str.includes('santa rita') || str.includes('sta. rita') || str.includes('starita') || str.includes('san basilio') || str.includes('becuran') || str.includes('dila dila')) return 'Santa Rita';
-  if (str.includes('guagua') || str.includes('pulungmasle') || str.includes('ascomo') || str.includes('bancal')) return 'Guagua';
-  if (str.includes('porac') || str.includes('cangatba') || str.includes('manibaug') || str.includes('pulung santol') || str.includes('inararo')) return 'Porac';
+  const str = `${obj?.municipality || ''} ${obj?.city || ''} ${obj?.address_location || ''} ${obj?.address || ''} ${obj?.barangay || ''} ${obj?.requester?.profile?.city || ''} ${obj?.profile?.city || ''} ${obj?.profile?.address || ''} ${obj?.email || ''} ${obj?.profile?.headline || ''} ${obj?.profile?.responder_unit || ''} ${obj?.badge_or_unit_id || ''}`.toLowerCase();
+  if (str.includes('santa rita') || str.includes('sta. rita') || str.includes('starita') || str.includes('santarita') || str.includes('san basilio') || str.includes('becuran') || str.includes('dila dila') || str.includes('str-')) return 'Santa Rita';
+  if (str.includes('guagua') || str.includes('pulungmasle') || str.includes('ascomo') || str.includes('bancal') || str.includes('gua-')) return 'Guagua';
+  if (str.includes('porac') || str.includes('cangatba') || str.includes('manibaug') || str.includes('pulung santol') || str.includes('inararo') || str.includes('por-')) return 'Porac';
 
-  if (obj?.latitude) {
+  if (obj?.latitude && parseFloat(obj.latitude) !== 0) {
     const lat = parseFloat(obj.latitude);
     if (lat >= 15.035) return 'Porac';
     if (lat >= 14.985) return 'Santa Rita';
@@ -731,6 +914,51 @@ export default function AdminDashboard({ user, onLogout }) {
   });
   const [creatingSub, setCreatingSub] = useState(false);
   const [subAdminMsg, setSubAdminMsg] = useState('');
+
+  const [showCreateResponderModal, setShowCreateResponderModal] = useState(false);
+  const [responderForm, setResponderForm] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    password: '',
+    phone_number: '',
+    department: 'Medical',
+    municipality: isJurisdictionLocked ? assignedJurisdiction : 'Porac',
+    unit_name: '',
+    badge_number: '',
+  });
+  const [creatingResponder, setCreatingResponder] = useState(false);
+  const [responderMsg, setResponderMsg] = useState('');
+
+  const handleCreateResponder = async (e) => {
+    if (e) e.preventDefault();
+    setCreatingResponder(true);
+    setResponderMsg('');
+    try {
+      const res = await api.post('/auth/responder', responderForm);
+      if (res.data.success) {
+        setResponderMsg(`✅ First Responder deployed successfully for ${responderForm.municipality} (${responderForm.department})!`);
+        setResponderForm({
+          first_name: '',
+          last_name: '',
+          email: '',
+          password: '',
+          phone_number: '',
+          department: 'Medical',
+          municipality: isJurisdictionLocked ? assignedJurisdiction : 'Porac',
+          unit_name: '',
+          badge_number: '',
+        });
+        loadUsers();
+      } else {
+        setResponderMsg('❌ ' + (res.data.message || 'Creation failed'));
+      }
+    } catch (err) {
+      setResponderMsg('❌ ' + (err.response?.data?.message || err.message || 'Deployment failed'));
+    } finally {
+      setCreatingResponder(false);
+    }
+  };
 
   const [alertsList, setAlertsList] = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
@@ -1572,16 +1800,11 @@ export default function AdminDashboard({ user, onLogout }) {
                 return (
                   <div key={r.id} className="glass-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                      <div style={{
-                        width: '46px', height: '46px', borderRadius: '10px', background: sev.bg, border: `1px solid ${sev.border}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px'
-                      }}>
-                        {EMERGENCY_ICONS[r.emergency_type] || '🚨'}
-                      </div>
+                      <CriticalWarningLogo size={46} />
 
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: '800', fontSize: '15px', color: '#f8fafc' }}>{r.emergency_type.toUpperCase()}</span>
+                          <EmergencyBadges incident={r} size="medium" />
                           
                           {/* Municipality Badge */}
                           <span style={{
@@ -1591,12 +1814,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             📍 {townConf.label}
                           </span>
 
-                          <span style={{
-                            fontSize: '9.5px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px',
-                            background: sev.bg, color: sev.color, border: `1px solid ${sev.border}`
-                          }}>
-                            {r.severity_level}
-                          </span>
+                          <CriticalBadge size="small" />
                           <span style={{
                             fontSize: '9.5px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px',
                             background: 'rgba(255,255,255,0.06)', color: STATUS_COLOR[r.status] || '#cbd5e1'
@@ -1609,11 +1827,29 @@ export default function AdminDashboard({ user, onLogout }) {
                           📍 {r.address_location || 'GPS Captured'} • Reporter: <b style={{ color: '#cbd5e1' }}>{r.requester?.profile?.first_name || 'Citizen'}</b> ({r.contact_number || r.requester?.phone_number || 'N/A'})
                         </div>
 
+                        {/* Assigned Dispatcher / Sub-Admin */}
+                        <div style={{ fontSize: '11px', color: (r.assigned_subadmin || r.assigned_subadmin_id) ? '#38bdf8' : '#f59e0b', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span>{(r.assigned_subadmin || r.assigned_subadmin_id) ? '👤 Assigned Dispatcher:' : '⚠️ Duty Dispatcher:'}</span>
+                          <b>
+                            {r.assigned_subadmin?.profile?.first_name
+                              ? `${r.assigned_subadmin.profile.first_name} ${r.assigned_subadmin.profile.last_name || ''} (${r.assigned_sector || r.municipality || 'Sector'})`
+                              : (r.assigned_subadmin_id ? `Dispatcher #${r.assigned_subadmin_id} (${r.assigned_sector || r.municipality || 'Operations'})` : 'Unassigned • Action Required')}
+                          </b>
+                          {r.subadmin_confirmed_at && (
+                            <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '800' }}>[✓ ACCEPTED]</span>
+                          )}
+                        </div>
+
                         {r.responder_name && (
                           <div style={{ fontSize: '11px', color: '#38bdf8', marginTop: '2px' }}>
                             ⚡ Assigned Force: <b>{r.responder_name}</b> ({r.responder_unit || 'Unit Alpha'})
                           </div>
                         )}
+
+                        {/* Step-by-Step Status Tracker */}
+                        <div style={{ marginTop: '10px', maxWidth: '620px' }}>
+                          <EmergencyStatusTracker incident={r} compact={true} />
+                        </div>
                       </div>
                     </div>
 
@@ -1636,13 +1872,13 @@ export default function AdminDashboard({ user, onLogout }) {
                         <button
                           className="tactical-btn"
                           style={{
-                            background: 'linear-gradient(135deg, #c084fc, #9333ea)',
-                            boxShadow: '0 0 12px rgba(192,132,252,0.4)',
+                            background: 'linear-gradient(135deg, #0284c7, #0ea5e9)',
+                            boxShadow: '0 0 14px rgba(14,165,233,0.4)',
                             fontWeight: '800',
                           }}
                           onClick={() => setSelected(r)}
                         >
-                          ⚡ ASSIGN RESPONDER
+                          ⚡ ASSIGN DISPATCHER
                         </button>
                       )}
 
@@ -1804,7 +2040,10 @@ export default function AdminDashboard({ user, onLogout }) {
                           <b style={{ color: isCompleted ? '#10b981' : (isCancelled ? '#94a3b8' : '#f43f5e') }}>
                             {isCompleted ? '✅ Resolved Incident' : (isCancelled ? '✕ Cancelled SOS' : '🆘 Emergency')} #{r.id} ({town})
                           </b><br />
-                          <b>Type:</b> {r.emergency_type} ({r.severity_level})<br />
+                          <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                            <EmergencyBadges incident={r} size="small" />
+                            <CriticalBadge size="small" />
+                          </div>
                           <b>Status:</b> <span style={{ color: STATUS_COLOR[r.status] || '#fff', fontWeight: '700' }}>{r.status}</span><br />
                           <b>Victim:</b> {r.requester?.profile?.first_name || 'Citizen'} ({r.contact_number || 'N/A'})<br />
                           <b>Location:</b> {r.address_location || 'GPS'}<br />
@@ -2019,7 +2258,7 @@ export default function AdminDashboard({ user, onLogout }) {
               </button>
             )}
             {userCategoryTab === 'responders' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', padding: '6px 10px', borderRadius: '6px' }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
                   <span style={{ fontSize: '11px', fontWeight: '800', color: '#10b981' }}>{responderAvailabilityCounts.Available} AVAILABLE</span>
@@ -2028,6 +2267,20 @@ export default function AdminDashboard({ user, onLogout }) {
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f43f5e', animation: 'resqPulse 1.5s infinite' }} />
                   <span style={{ fontSize: '11px', fontWeight: '800', color: '#f43f5e' }}>{responderAvailabilityCounts.Busy} BUSY ON CALL</span>
                 </div>
+                <button
+                  onClick={() => setShowCreateResponderModal(true)}
+                  className="tactical-btn"
+                  style={{
+                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                    color: '#fff',
+                    padding: '8px 14px',
+                    fontSize: '11.5px',
+                    fontWeight: '800',
+                    boxShadow: '0 0 15px rgba(245, 158, 11, 0.3)',
+                  }}
+                >
+                  + DEPLOY NEW FIRST RESPONDER
+                </button>
               </div>
             )}
           </div>
@@ -2667,7 +2920,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
                             <td style={{ padding: '10px' }}>
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 8px', borderRadius: '4px', background: avail.bg, border: `1px solid ${avail.border}` }}>
-                                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: avail.dotColor, boxShadow: `0 0 6px ${avail.dotColor}` }} />
+                                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: avail.color, boxShadow: `0 0 6px ${avail.color}` }} />
                                 <span style={{ fontSize: '10px', fontWeight: '900', color: avail.color }}>
                                   {avail.label}
                                 </span>
@@ -3577,6 +3830,164 @@ export default function AdminDashboard({ user, onLogout }) {
             >
               CLOSE DOSSIER
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: QUICK DEPLOY FIRST RESPONDER */}
+      {showCreateResponderModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 220, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowCreateResponderModal(false)}
+        >
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '520px', padding: '24px', background: 'rgba(9, 13, 26, 0.98)', border: '1px solid rgba(245,158,11,0.4)', boxShadow: '0 0 30px rgba(245,158,11,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px', marginBottom: '16px' }}>
+              <div style={{ fontWeight: '900', fontSize: '15px', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>🚑</span>
+                <span>DEPLOY EMERGENCY FIRST RESPONDER UNIT</span>
+              </div>
+              <button onClick={() => setShowCreateResponderModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}>×</button>
+            </div>
+
+            {responderMsg && (
+              <div style={{
+                padding: '10px 14px', borderRadius: '6px', marginBottom: '14px', fontSize: '12px', fontWeight: '700',
+                background: responderMsg.startsWith('✅') ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)',
+                color: responderMsg.startsWith('✅') ? '#10b981' : '#f43f5e',
+                border: `1px solid ${responderMsg.startsWith('✅') ? '#10b981' : '#f43f5e'}`
+              }}>
+                {responderMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateResponder} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="form-label">FIRST NAME</label>
+                  <input
+                    required
+                    className="tactical-input"
+                    placeholder="e.g. Juan"
+                    value={responderForm.first_name}
+                    onChange={(e) => setResponderForm(f => ({ ...f, first_name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">LAST NAME</label>
+                  <input
+                    required
+                    className="tactical-input"
+                    placeholder="e.g. Dela Cruz"
+                    value={responderForm.last_name}
+                    onChange={(e) => setResponderForm(f => ({ ...f, last_name: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="form-label">DEPARTMENT / SERVICE</label>
+                  <select
+                    className="tactical-input"
+                    value={responderForm.department}
+                    onChange={(e) => setResponderForm(f => ({ ...f, department: e.target.value }))}
+                  >
+                    <option value="Medical">🚑 Medical (EMS/Ambulance)</option>
+                    <option value="Police">🚔 Police (PNP)</option>
+                    <option value="Fire">🚒 Fire (BFP)</option>
+                    <option value="Rescue">⛑️ Rescue / MDRRMO</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">MUNICIPAL HUB</label>
+                  <select
+                    className="tactical-input"
+                    value={responderForm.municipality}
+                    disabled={isJurisdictionLocked}
+                    onChange={(e) => setResponderForm(f => ({ ...f, municipality: e.target.value }))}
+                  >
+                    <option value="Porac">Porac, Pampanga</option>
+                    <option value="Santa Rita">Santa Rita, Pampanga</option>
+                    <option value="Guagua">Guagua, Pampanga</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="form-label">UNIT CALL-SIGN</label>
+                  <input
+                    className="tactical-input"
+                    placeholder="e.g. Medic Unit-02"
+                    value={responderForm.unit_name}
+                    onChange={(e) => setResponderForm(f => ({ ...f, unit_name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">BADGE NUMBER</label>
+                  <input
+                    className="tactical-input"
+                    placeholder="e.g. MED-STR-02"
+                    value={responderForm.badge_number}
+                    onChange={(e) => setResponderForm(f => ({ ...f, badge_number: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label">OFFICIAL EMAIL</label>
+                <input
+                  required
+                  type="email"
+                  className="tactical-input"
+                  placeholder="e.g. medic2.santarita@resqlink.gov.ph"
+                  value={responderForm.email}
+                  onChange={(e) => setResponderForm(f => ({ ...f, email: e.target.value }))}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="form-label">ASSIGNED PASSWORD</label>
+                  <input
+                    required
+                    type="password"
+                    className="tactical-input"
+                    placeholder="Min 6 characters"
+                    value={responderForm.password}
+                    onChange={(e) => setResponderForm(f => ({ ...f, password: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">PHONE NUMBER</label>
+                  <input
+                    className="tactical-input"
+                    placeholder="e.g. 0917-123-4567"
+                    value={responderForm.phone_number}
+                    onChange={(e) => setResponderForm(f => ({ ...f, phone_number: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={creatingResponder}
+                className="tactical-btn"
+                style={{
+                  marginTop: '10px',
+                  padding: '12px',
+                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: '#fff',
+                  fontWeight: '900',
+                  fontSize: '13px'
+                }}
+              >
+                {creatingResponder ? 'DEPLOYING RESPONDER UNIT...' : '⚡ CONFIRM & DEPLOY FIRST RESPONDER'}
+              </button>
+            </form>
           </div>
         </div>
       )}

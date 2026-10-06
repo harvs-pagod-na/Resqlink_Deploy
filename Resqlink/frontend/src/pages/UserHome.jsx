@@ -11,6 +11,7 @@ import {
   getNearestResqlinkTown,
   geocodePampangaAddress,
 } from '../data/PampangaData';
+import { EmergencyBadges, CriticalBadge, EmergencyStatusTracker, EMERGENCY_STATUS_STEPS } from '../utils/emergencyHelper';
 
 const SOCKET_URL = typeof window !== 'undefined' 
   ? (window.location.port === '5173' ? window.location.origin : (import.meta.env.VITE_API_URL?.replace('/api', '') || `http://${window.location.hostname}:3000`))
@@ -102,12 +103,39 @@ export default function UserHome({ user, onLogout }) {
   const [selectedBarangay, setSelectedBarangay] = useState(initialBrgy);
   const [sosForm, setSosForm] = useState({
     emergency_type: 'Medical',
-    severity_level: 'High',
+    emergency_types: ['Medical'],
+    severity_level: 'Critical',
     description: '',
     address_location: '',
     photo_url: '',
     contact_number: user?.phone_number || '',
   });
+
+  const selectedEmergencyTypes = Array.isArray(sosForm.emergency_types) && sosForm.emergency_types.length > 0
+    ? sosForm.emergency_types
+    : (sosForm.emergency_type ? [sosForm.emergency_type] : ['Medical']);
+
+  const toggleEmergencyType = (typeId) => {
+    setSosForm((prev) => {
+      const current = Array.isArray(prev.emergency_types) && prev.emergency_types.length > 0
+        ? prev.emergency_types
+        : (prev.emergency_type ? [prev.emergency_type] : ['Medical']);
+      
+      let next;
+      if (current.includes(typeId)) {
+        if (current.length === 1) return prev; // Keep at least one selected
+        next = current.filter((id) => id !== typeId);
+      } else {
+        next = [...current, typeId];
+      }
+
+      return {
+        ...prev,
+        emergency_types: next,
+        emergency_type: next[0] || 'Medical',
+      };
+    });
+  };
   const [userLocation, setUserLocation] = useState(RESQLINK_BARANGAY_COORDS['Santa Rita']?.['San Basilio'] || { lat: 15.0339, lng: 120.5842 });
   const [responderLocation, setResponderLocation] = useState(null);
   const [routePolyline, setRoutePolyline] = useState([]);
@@ -497,7 +525,27 @@ export default function UserHome({ user, onLogout }) {
         healthSummaryParts.push(`Kin Contact: ${medicalForm.emergency_contact_name} (${medicalForm.emergency_contact_phone || 'N/A'})`);
       }
 
+      const selectedTypes = Array.isArray(sosForm.emergency_types) && sosForm.emergency_types.length > 0
+        ? sosForm.emergency_types
+        : (sosForm.emergency_type ? [sosForm.emergency_type] : ['Medical']);
+      const primaryType = selectedTypes[0] || 'Medical';
+
+      // Auto-assign agency if cross-agency categories are selected
+      let determinedAgency = 'MDRRMO';
+      const hasFire = selectedTypes.includes('Fire');
+      const hasPolice = selectedTypes.includes('Crime/Police');
+      const hasMdrrmo = selectedTypes.some((t) => ['Medical', 'Flood/Disaster', 'Accident', 'Evacuation'].includes(t));
+
+      if ((hasFire && hasPolice) || (hasFire && hasMdrrmo) || (hasPolice && hasMdrrmo)) {
+        determinedAgency = 'Multi-Agency';
+      } else if (hasFire) {
+        determinedAgency = 'BFP';
+      } else if (hasPolice) {
+        determinedAgency = 'PNP';
+      }
+
       const enhancedDescription = [
+        selectedTypes.length > 1 ? `[EMERGENCY CATEGORIES: ${selectedTypes.join(', ')}]` : '',
         sosForm.description ? `Note: ${sosForm.description}` : '',
         healthSummaryParts.length > 0 ? `[PATIENT TELEMETRY: ${healthSummaryParts.join(' | ')}]` : ''
       ].filter(Boolean).join('\n');
@@ -508,6 +556,10 @@ export default function UserHome({ user, onLogout }) {
 
       const payload = {
         ...sosForm,
+        emergency_type: primaryType,
+        emergency_types: selectedTypes,
+        severity_level: 'Critical',
+        target_agency: determinedAgency,
         municipality: selectedTown,
         barangay: selectedBarangay,
         address_location: formattedAddress,
@@ -938,16 +990,27 @@ export default function UserHome({ user, onLogout }) {
 
             {/* Emergency Category Selector */}
             <div className="glass-panel" style={{ padding: '16px' }}>
-              <label className="form-label">1. SELECT EMERGENCY CATEGORY</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
+                <label className="form-label" style={{ margin: 0 }}>1. SELECT EMERGENCY CATEGORY</label>
+                {selectedEmergencyTypes.length > 1 && (
+                  <span style={{ fontSize: '11px', color: '#f43f5e', fontWeight: '800', background: 'rgba(244,63,94,0.12)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(244,63,94,0.3)' }}>
+                    {selectedEmergencyTypes.length} Selected
+                  </span>
+                )}
+              </div>
               <div className="resq-category-grid">
                 {EMERGENCY_TYPES.map((t) => {
-                  const isSel = sosForm.emergency_type === t.id;
+                  const isSel = selectedEmergencyTypes.includes(t.id);
                   return (
                     <button
+                      type="button"
                       key={t.id}
-                      onClick={() => setSosForm((f) => ({ ...f, emergency_type: t.id }))}
+                      onClick={() => toggleEmergencyType(t.id)}
                       style={{
-                        padding: '12px 6px', borderRadius: '8px', cursor: 'pointer', textAlign: 'center',
+                        padding: '12px 6px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        textAlign: 'center',
                         background: isSel ? 'rgba(244,63,94,0.2)' : 'rgba(255,255,255,0.03)',
                         border: isSel ? '1.5px solid #f43f5e' : '1px solid rgba(255,255,255,0.06)',
                         color: isSel ? '#ffffff' : '#94a3b8',
@@ -963,38 +1026,10 @@ export default function UserHome({ user, onLogout }) {
               </div>
             </div>
 
-            {/* Severity Level Selector */}
-            <div className="glass-panel" style={{ padding: '16px' }}>
-              <label className="form-label">2. SEVERITY ASSESSMENT</label>
-              <div className="resq-severity-grid">
-                {SEVERITY.map((s) => {
-                  const isSel = sosForm.severity_level === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      className="resq-severity-btn"
-                      onClick={() => setSosForm((f) => ({ ...f, severity_level: s.id }))}
-                      style={{
-                        padding: '10px 4px', borderRadius: '8px', cursor: 'pointer', textAlign: 'center',
-                        background: isSel ? `rgba(${s.id === 'Critical' ? '244,63,94' : '14,165,233'}, 0.2)` : 'rgba(255,255,255,0.03)',
-                        border: isSel ? `1.5px solid ${s.color}` : '1px solid rgba(255,255,255,0.06)',
-                        color: isSel ? s.color : '#94a3b8',
-                        fontWeight: '800', fontSize: '11px',
-                        transition: 'all 0.15s ease',
-                        boxSizing: 'border-box'
-                      }}
-                    >
-                      {s.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* GPS Location & Media Details */}
             <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
-                <label className="form-label">3. SITUATION OVERVIEW / INJURY DETAILS</label>
+                <label className="form-label">2. SITUATION OVERVIEW / INJURY DETAILS</label>
                 <textarea
                   className="tactical-input"
                   rows={2}
@@ -1010,7 +1045,7 @@ export default function UserHome({ user, onLogout }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '4px' }}>
                   <div>
                     <label className="form-label" style={{ color: '#f43f5e', fontWeight: '800' }}>
-                      4. CHOOSE NEAREST EMERGENCY HUB (PORAC • SANTA RITA • GUAGUA)
+                      3. CHOOSE NEAREST EMERGENCY HUB (PORAC • SANTA RITA • GUAGUA)
                     </label>
                     <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>
                       Your SOS will be received directly by the selected hub's emergency command desk.
@@ -1090,31 +1125,7 @@ export default function UserHome({ user, onLogout }) {
                 </div>
 
                 {/* Map Action Quick Buttons */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
-                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleTownChange('Porac')}
-                      style={{ padding: '4px 7px', borderRadius: '4px', background: selectedTown === 'Porac' ? '#c084fc25' : 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#c084fc', fontSize: '9.5px', fontWeight: '800', cursor: 'pointer' }}
-                    >
-                      🎯 Porac Center
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTownChange('Santa Rita')}
-                      style={{ padding: '4px 7px', borderRadius: '4px', background: selectedTown === 'Santa Rita' ? '#38bdf825' : 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#38bdf8', fontSize: '9.5px', fontWeight: '800', cursor: 'pointer' }}
-                    >
-                      🎯 Santa Rita Center
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTownChange('Guagua')}
-                      style={{ padding: '4px 7px', borderRadius: '4px', background: selectedTown === 'Guagua' ? '#34d39925' : 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#34d399', fontSize: '9.5px', fontWeight: '800', cursor: 'pointer' }}
-                    >
-                      🎯 Guagua Center
-                    </button>
-                  </div>
-
+                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '4px', marginBottom: '6px' }}>
                   <button
                     type="button"
                     className="tactical-btn"
@@ -1173,7 +1184,7 @@ export default function UserHome({ user, onLogout }) {
               </div>
 
               <div>
-                <label className="form-label">5. INCIDENT MEDIA ATTACHMENT</label>
+                <label className="form-label">4. INCIDENT MEDIA ATTACHMENT</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
                   <input
                     type="file"
@@ -1264,40 +1275,21 @@ export default function UserHome({ user, onLogout }) {
               <>
                 {/* Flow Stage Indicator */}
                 <div className="glass-panel" style={{ padding: '14px 16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b' }}>RESPONSE PIPELINE</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b' }}>EMERGENCY:</span>
+                      <EmergencyBadges incident={activeRequest} size="small" />
+                      <CriticalBadge size="small" />
+                    </div>
                     <span style={{ fontSize: '11px', fontWeight: '900', color: STATUS_COLOR[activeRequest.status] || '#38bdf8' }}>
                       {activeRequest.status.toUpperCase()}
                     </span>
                   </div>
 
-                  {(() => {
-                    const stepIdx = Math.max(0, STATUS_STEPS.indexOf(activeRequest.status));
-                    return (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        {STATUS_STEPS.map((s, idx) => {
-                          const done = idx < stepIdx;
-                          const active = idx === stepIdx;
-                          return (
-                            <React.Fragment key={s}>
-                              <div style={{
-                                width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '9px', fontWeight: '800', flexShrink: 0,
-                                background: done ? '#10b981' : active ? '#0ea5e9' : 'rgba(255,255,255,0.06)',
-                                color: done || active ? '#ffffff' : '#64748b',
-                                border: active ? '2px solid #38bdf8' : 'none'
-                              }}>
-                                {done ? '✓' : idx + 1}
-                              </div>
-                              {idx < STATUS_STEPS.length - 1 && (
-                                <div style={{ flex: 1, height: '2px', background: idx < stepIdx ? '#10b981' : 'rgba(255,255,255,0.08)' }} />
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
+                  {/* Real-Time Step-by-Step Emergency Status Tracker */}
+                  <div style={{ marginTop: '8px', marginBottom: '8px' }}>
+                    <EmergencyStatusTracker incident={activeRequest} currentStatus={activeRequest.status} />
+                  </div>
 
                   {/* Contextual Guidance Message */}
                   <div style={{ marginTop: '10px', fontSize: '11.5px', color: '#cbd5e1', background: 'rgba(0,0,0,0.35)', padding: '8px 12px', borderRadius: '6px' }}>
@@ -1467,9 +1459,11 @@ export default function UserHome({ user, onLogout }) {
               myRequests.map((r) => (
                 <div key={r.id} className="glass-card" style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '20px' }}>{EMERGENCY_TYPES.find((t) => t.id === r.emergency_type)?.icon || '🚨'}</span>
                     <div>
-                      <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#f8fafc' }}>{r.emergency_type}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                        <EmergencyBadges incident={r} size="small" />
+                        <CriticalBadge size="small" />
+                      </div>
                       <div className="mono-text" style={{ fontSize: '10px', color: '#64748b' }}>{new Date(r.createdAt).toLocaleString()}</div>
                     </div>
                   </div>

@@ -4,6 +4,7 @@ import L from 'leaflet';
 import api from '../api';
 import { io } from 'socket.io-client';
 import { RESQLINK_TOWN_CENTERS } from '../data/PampangaData';
+import { EmergencyBadges, CriticalBadge, getIncidentEmergencies, EmergencyStatusTracker, EMERGENCY_STATUS_STEPS } from '../utils/emergencyHelper';
 
 const SOCKET_URL = typeof window !== 'undefined' 
   ? (window.location.port === '5173' ? window.location.origin : (import.meta.env.VITE_API_URL?.replace('/api', '') || `http://${window.location.hostname}:3000`))
@@ -425,26 +426,23 @@ export default function ResponderPortal({ user, onLogout }) {
             gap: '12px',
           }}>
             {/* Mission Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '20px' }}>{EMERGENCY_ICONS[activeIncident.emergency_type] || '🚨'}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <div>
-                  <span style={{ fontWeight: '900', fontSize: '15px', color: '#f8fafc' }}>
-                    {activeIncident.emergency_type.toUpperCase()}
-                  </span>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                    Incident #{activeIncident.id} • 📍 {activeIncident.municipality || 'Santa Rita'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: '900', fontSize: '15px', color: '#f8fafc' }}>
+                      INCIDENT #{activeIncident.id}
+                    </span>
+                    <EmergencyBadges incident={activeIncident} size="medium" />
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                    📍 {activeIncident.municipality || 'Pampanga'} • {activeIncident.address_location || 'GPS Locked'}
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <span style={{
-                  fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px',
-                  background: sevColor.bg, color: sevColor.text, border: `1px solid ${sevColor.border}`
-                }}>
-                  {activeIncident.severity_level}
-                </span>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <CriticalBadge size="small" />
                 <span style={{
                   fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px',
                   background: 'rgba(56,189,248,0.2)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.4)'
@@ -503,7 +501,7 @@ export default function ResponderPortal({ user, onLogout }) {
 
               {activeIncident.description && (
                 <div style={{ color: '#cbd5e1', fontSize: '12px', background: 'rgba(0,0,0,0.3)', padding: '6px 8px', borderRadius: '4px' }}>
-                  <b>Note:</b> {activeIncident.description}
+                  <b>Note:</b> {activeIncident.description.replace(/^\[EMERGENCY CATEGORIES: [^\]]+\]\s*/, '') || activeIncident.description}
                 </div>
               )}
 
@@ -527,6 +525,11 @@ export default function ResponderPortal({ user, onLogout }) {
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Real-Time Step-by-Step Emergency Status Tracker */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <EmergencyStatusTracker incident={activeIncident} />
             </div>
 
             {/* Navigation Telemetry Cards */}
@@ -715,7 +718,8 @@ export default function ResponderPortal({ user, onLogout }) {
               >
                 <Popup>
                   <b>SOS Incident #{activeIncident.id}</b><br />
-                  Type: {activeIncident.emergency_type}<br />
+                  <b>Categories:</b> {getIncidentEmergencies(activeIncident).join(', ')}<br />
+                  <b>Severity:</b> <span style={{ color: '#f43f5e', fontWeight: 'bold' }}>Critical</span><br />
                   Reporter: {activeIncident.reporter_name}<br />
                   {activeIncident.address_location}
                 </Popup>

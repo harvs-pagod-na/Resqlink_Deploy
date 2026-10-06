@@ -4,6 +4,7 @@ import L from 'leaflet';
 import api from '../api';
 import { io } from 'socket.io-client';
 import { RESQLINK_TOWN_CENTERS } from '../data/PampangaData';
+import { EmergencyBadges, CriticalBadge, CriticalWarningLogo, getIncidentEmergencies, EmergencyStatusTracker, EMERGENCY_STATUS_STEPS, RESCUE_DEPARTMENTS, mapEmergencyCategoriesToDepartments } from '../utils/emergencyHelper';
 
 const SOCKET_URL = typeof window !== 'undefined' 
   ? (window.location.port === '5173' ? window.location.origin : (import.meta.env.VITE_API_URL?.replace('/api', '') || `http://${window.location.hostname}:3000`))
@@ -88,6 +89,26 @@ export default function SubAdminDashboard({ user, onLogout }) {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date().toUTCString().slice(17, 25));
+
+  // Dedicated Rescue Stage Progression & Manual Override State
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+  const [overrideTargetStatus, setOverrideTargetStatus] = useState('Accepted');
+  const [overrideReason, setOverrideReason] = useState('');
+  const [applyingOverride, setApplyingOverride] = useState(false);
+
+  // Dispatch Unit Assignment Modal State
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [dispatchingUnit, setDispatchingUnit] = useState(false);
+  const [availableResponders, setAvailableResponders] = useState([]);
+  const [loadingResponders, setLoadingResponders] = useState(false);
+  const [dispatchUnitForm, setDispatchUnitForm] = useState({
+    assigned_department: '',
+    assigned_responder_id: null,
+    responder_name: '',
+    responder_unit: '',
+    responder_phone: '',
+    dispatcher_notes: '',
+  });
 
   // Audio Call state
   const [callStatus, setCallStatus] = useState('IDLE');
@@ -316,7 +337,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
     }
   };
 
-  const updateStatus = async (r, newStatus) => {
+  const updateStatus = async (r, newStatus, extraData = {}) => {
     setUpdatingId(r.id);
     const curLat = responderPos.lat || responderPosRef.current?.lat;
     const curLng = responderPos.lng || responderPosRef.current?.lng;
@@ -324,17 +345,18 @@ export default function SubAdminDashboard({ user, onLogout }) {
     try {
       const res = await api.put(`/resq/dispatch/${r.id}`, {
         status: newStatus,
-        responder_name: r.responder_name || `${user?.profile?.first_name || 'Commander'} ${user?.profile?.last_name || 'Dispatcher'}`,
-        responder_unit: r.responder_unit || 'Alpha Tactical Medic-01',
-        responder_phone: r.responder_phone || user?.phone_number || '0917-111-9999',
+        responder_name: extraData.responder_name || r.responder_name || `${user?.profile?.first_name || 'Commander'} ${user?.profile?.last_name || 'Dispatcher'}`,
+        responder_unit: extraData.responder_unit || r.responder_unit || 'Alpha Tactical Medic-01',
+        responder_phone: extraData.responder_phone || r.responder_phone || user?.phone_number || '0917-111-9999',
         responder_lat: curLat || undefined,
         responder_lng: curLng || undefined,
+        ...extraData,
       });
       if (res.data.success) {
         const updated = { ...r, ...res.data.request };
         setRequests((prev) => prev.map((req) => (req.id === r.id ? updated : req)));
         setSelected((prev) => (prev?.id === r.id ? updated : prev));
-        showNotification(`Dispatched Incident #${r.id} -> ${newStatus.toUpperCase()}`, 'success');
+        showNotification(`Incident #${r.id} -> ${newStatus.toUpperCase()}`, 'success');
 
         // Automatically manage continuous live GPS broadcast loop based on status
         if (['Accepted', 'Responder Dispatched', 'En Route'].includes(newStatus)) {
@@ -349,6 +371,102 @@ export default function SubAdminDashboard({ user, onLogout }) {
       showNotification(e.response?.data?.message || 'Failed to dispatch', 'error');
     }
     setUpdatingId(null);
+  };
+
+  const openDispatchModal = async (inc) => {
+    const cats = getIncidentEmergencies(inc);
+    const depts = mapEmergencyCategoriesToDepartments(cats);
+    const primaryDept = depts[0] || 'Medical';
+    const sector = inc.assigned_sector || inc.municipality || user?.profile?.city || 'Santa Rita';
+
+    setDispatchUnitForm({
+      assigned_department: depts.join(', '),
+      assigned_responder_id: inc.assigned_responder_id || null,
+      responder_name: inc.responder_name || (primaryDept === 'Fire' ? 'BFP Santa Rita Engine 1' : primaryDept === 'Police' ? 'PNP Mobile Unit Alpha' : 'MDRRMO Quick Response Team'),
+      responder_unit: inc.responder_unit || (primaryDept === 'Fire' ? 'BFP-PUMPER-01' : primaryDept === 'Police' ? 'PNP-PATROL-04' : 'MEDIC-AMBULANCE-01'),
+      responder_phone: inc.responder_phone || '0917-555-0199',
+      dispatcher_notes: inc.dispatcher_notes || `Rapid tactical dispatch authorized for ${cats.join(', ')} incident in ${sector}.`,
+    });
+    setShowDispatchModal(true);
+
+    setLoadingResponders(true);
+    try {
+      const res = await api.get(`/resq/responders?municipality=${sector}&department=all`);
+      if (res.data?.success && res.data.responders) {
+        setAvailableResponders(res.data.responders);
+      }
+    } catch (err) {
+      console.warn('Could not fetch responders:', err.message);
+    } finally {
+      setLoadingResponders(false);
+    }
+  };
+
+  const handleConfirmDispatch = async () => {
+    if (!selected) return;
+    setDispatchingUnit(true);
+    try {
+      const curLat = responderPos.lat || responderPosRef.current?.lat;
+      const curLng = responderPos.lng || responderPosRef.current?.lng;
+      const res = await api.put(`/resq/dispatch/${selected.id}`, {
+        status: 'Responder Dispatched',
+        assigned_department: dispatchUnitForm.assigned_department,
+        assigned_responder_id: dispatchUnitForm.assigned_responder_id,
+        responder_name: dispatchUnitForm.responder_name,
+        responder_unit: dispatchUnitForm.responder_unit,
+        responder_phone: dispatchUnitForm.responder_phone,
+        dispatcher_notes: dispatchUnitForm.dispatcher_notes,
+        responder_lat: curLat || undefined,
+        responder_lng: curLng || undefined,
+      });
+      if (res.data?.success) {
+        const updated = { ...selected, ...res.data.request };
+        setRequests((prev) => prev.map((req) => (req.id === selected.id ? updated : req)));
+        setSelected(updated);
+        setShowDispatchModal(false);
+        showNotification(`🚀 Responder Unit Dispatched to Emergency #${selected.id}!`, 'success');
+        startBroadcasting(updated);
+      }
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Failed to dispatch responder', 'error');
+    } finally {
+      setDispatchingUnit(false);
+    }
+  };
+
+  const handleApplyOverride = async () => {
+    if (!selected || !overrideTargetStatus) return;
+    setApplyingOverride(true);
+    try {
+      const curLat = responderPos.lat || responderPosRef.current?.lat;
+      const curLng = responderPos.lng || responderPosRef.current?.lng;
+      const res = await api.put(`/resq/dispatch/${selected.id}`, {
+        status: overrideTargetStatus,
+        manual_override: true,
+        override_reason: overrideReason || 'Manual Stage Override executed by Duty Dispatcher',
+        dispatcher_notes: overrideReason ? `[MANUAL OVERRIDE]: ${overrideReason}` : selected.dispatcher_notes,
+        responder_lat: curLat || undefined,
+        responder_lng: curLng || undefined,
+      });
+      if (res.data?.success) {
+        const updated = { ...selected, ...res.data.request };
+        setRequests((prev) => prev.map((req) => (req.id === selected.id ? updated : req)));
+        setSelected(updated);
+        setShowOverrideModal(false);
+        setOverrideReason('');
+        showNotification(`✓ Incident #${selected.id} manually transitioned to ${overrideTargetStatus.toUpperCase()}!`, 'success');
+
+        if (['Responder Dispatched', 'En Route'].includes(overrideTargetStatus)) {
+          if (!broadcasting && !simMode) startBroadcasting(updated);
+        } else if (['Arrived', 'Completed', 'Resolved', 'Cancelled', 'Closed'].includes(overrideTargetStatus)) {
+          stopBroadcasting();
+        }
+      }
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Failed to apply manual override', 'error');
+    } finally {
+      setApplyingOverride(false);
+    }
   };
 
   const startBroadcasting = (r) => {
@@ -769,49 +887,54 @@ export default function SubAdminDashboard({ user, onLogout }) {
                       boxShadow: sev.glow
                     }} />
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginLeft: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '16px' }}>{EMERGENCY_ICONS[r.emergency_type] || '🚨'}</span>
-                        <div>
-                          <div style={{ fontWeight: '800', fontSize: '13px', color: '#f8fafc' }}>
-                            {r.emergency_type.toUpperCase()}
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginLeft: '6px' }}>
+                      <CriticalWarningLogo size={36} style={{ marginTop: '2px' }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span className="mono-text" style={{ fontSize: '11px', fontWeight: '800', color: '#64748b' }}>
+                                #{r.id}
+                              </span>
+                              <span className="mono-text" style={{ fontSize: '10px', color: '#94a3b8' }}>
+                                • {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <EmergencyBadges incident={r} size="small" />
                           </div>
-                          <div className="mono-text" style={{ fontSize: '10px', color: '#64748b' }}>
-                            #{r.id} • {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+
+                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }}>
+                            <CriticalBadge size="small" />
+                            <span style={{
+                              fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px',
+                              background: 'rgba(255,255,255,0.06)', color: STATUS_COLOR[r.status] || '#cbd5e1'
+                            }}>
+                              {r.status.toUpperCase()}
+                            </span>
                           </div>
                         </div>
-                      </div>
 
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <span style={{
-                          fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px',
-                          background: sev.bg, color: sev.color, border: `1px solid ${sev.border}`
-                        }}>
-                          {r.severity_level}
-                        </span>
-                        <span style={{
-                          fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px',
-                          background: 'rgba(255,255,255,0.06)', color: STATUS_COLOR[r.status] || '#cbd5e1'
-                        }}>
-                          {r.status.toUpperCase()}
-                        </span>
+                        {/* Location & Details */}
+                        <div style={{ marginTop: '8px', fontSize: '11.5px', color: '#94a3b8', lineHeight: '1.4' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#cbd5e1' }}>
+                            <span>📍</span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {r.address_location || `${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}`}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '3px' }}>
+                            Reporter: <b style={{ color: '#cbd5e1' }}>{r.requester?.profile?.first_name || 'Citizen'} {r.requester?.profile?.last_name || ''}</b> ({r.contact_number || r.requester?.phone_number || 'N/A'})
+                          </div>
+                        </div>
+
+                        {/* Step-by-Step Status Tracker */}
+                        <div style={{ marginTop: '8px' }}>
+                          <EmergencyStatusTracker incident={r} compact={true} />
+                        </div>
                       </div>
                     </div>
 
-                    {/* Location & Details */}
-                    <div style={{ marginLeft: '6px', marginTop: '8px', fontSize: '11.5px', color: '#94a3b8', lineHeight: '1.4' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#cbd5e1' }}>
-                        <span>📍</span>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {r.address_location || `${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}`}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '3px' }}>
-                        Reporter: <b style={{ color: '#cbd5e1' }}>{r.requester?.profile?.first_name || 'Citizen'} {r.requester?.profile?.last_name || ''}</b> ({r.contact_number || r.requester?.phone_number || 'N/A'})
-                      </div>
-                    </div>
-
-                    {/* Action button if not confirmed yet */}
+                    {/* Action button if not accepted yet */}
                     {!r.subadmin_confirmed_at && (r.status === 'Assigned' || r.status === 'Pending') && (
                       <div style={{ marginLeft: '6px', marginTop: '10px' }}>
                         <button
@@ -820,14 +943,14 @@ export default function SubAdminDashboard({ user, onLogout }) {
                             width: '100%', justifyContent: 'center',
                             background: 'linear-gradient(135deg, #10b981, #059669)',
                             boxShadow: '0 0 10px rgba(16,185,129,0.3)',
-                            fontSize: '11px', padding: '8px'
+                            fontSize: '11px', padding: '8px', fontWeight: '800'
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
                             confirmAssignment(r);
                           }}
                         >
-                          ⚡ CONFIRM ASSIGNMENT
+                          ⚡ ACCEPT EMERGENCY RESPONSIBILITY
                         </button>
                       </div>
                     )}
@@ -858,64 +981,168 @@ export default function SubAdminDashboard({ user, onLogout }) {
           
           {selected ? (
             <>
+              {/* Step-by-Step Emergency Status Tracker */}
+              <div className="glass-panel" style={{ padding: '14px 18px' }}>
+                <EmergencyStatusTracker incident={selected} />
+              </div>
+
               {/* Selected Incident HUD Action Banner */}
-              <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '16px', fontWeight: '900', color: '#f8fafc' }}>
-                      INCIDENT #{selected.id}: {selected.emergency_type.toUpperCase()}
-                    </span>
-                    <span style={{
-                      fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px',
-                      background: 'rgba(14,165,233,0.15)', color: '#38bdf8', border: '1px solid rgba(14,165,233,0.3)'
-                    }}>
-                      STATE: {selected.status.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="mono-text" style={{ fontSize: '11px', color: '#94a3b8', marginTop: '3px' }}>
-                    GPS: {selected.latitude}, {selected.longitude} • Callback: {selected.contact_number || selected.requester?.phone_number || 'N/A'}
+              <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <CriticalWarningLogo size={42} />
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '16px', fontWeight: '900', color: '#f8fafc' }}>
+                        INCIDENT #{selected.id}
+                      </span>
+                      <EmergencyBadges incident={selected} size="medium" />
+                      <CriticalBadge size="small" />
+                      <span style={{
+                        fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px',
+                        background: 'rgba(14,165,233,0.15)', color: '#38bdf8', border: '1px solid rgba(14,165,233,0.3)'
+                      }}>
+                        STATE: {selected.status.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="mono-text" style={{ fontSize: '11px', color: '#94a3b8', marginTop: '5px' }}>
+                      GPS: {selected.latitude}, {selected.longitude} • Callback: {selected.contact_number || selected.requester?.phone_number || 'N/A'}
+                    </div>
                   </div>
                 </div>
 
-                {/* Status Transition Control Buttons */}
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {STATUS_FLOW.map((st) => (
+                {/* Dedicated Contextual Rescue Stage Controller (Prompt Section 8, 9, 13) */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {/* Contextual Action Button based on Current Stage */}
+                  {(selected.status === 'Pending' || selected.status === 'Assigned') && (
                     <button
-                      key={st}
-                      disabled={updatingId === selected.id}
-                      onClick={() => updateStatus(selected, st)}
+                      disabled={confirming || updatingId === selected.id}
+                      onClick={() => confirmAssignment(selected)}
+                      className="tactical-btn"
                       style={{
-                        padding: '6px 10px', borderRadius: '6px', fontSize: '10.5px', fontWeight: '700', cursor: 'pointer',
-                        background: selected.status === st ? '#0ea5e9' : 'rgba(255,255,255,0.05)',
-                        border: selected.status === st ? '1px solid #0ea5e9' : '1px solid rgba(255,255,255,0.08)',
-                        color: selected.status === st ? '#ffffff' : '#94a3b8',
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        boxShadow: '0 0 16px rgba(16,185,129,0.4)',
+                        padding: '8px 16px', fontSize: '11.5px', fontWeight: '900', color: '#fff'
                       }}
                     >
-                      {st}
+                      {confirming ? 'ACCEPTING...' : '⚡ ACCEPT EMERGENCY'}
                     </button>
-                  ))}
+                  )}
+
+                  {selected.status === 'Accepted' && (
+                    <button
+                      disabled={updatingId === selected.id}
+                      onClick={() => openDispatchModal(selected)}
+                      className="tactical-btn"
+                      style={{
+                        background: 'linear-gradient(135deg, #818cf8, #6366f1)',
+                        boxShadow: '0 0 16px rgba(129,140,248,0.4)',
+                        padding: '8px 16px', fontSize: '11.5px', fontWeight: '900', color: '#fff'
+                      }}
+                    >
+                      🚀 DISPATCH RESPONDER
+                    </button>
+                  )}
+
+                  {selected.status === 'Responder Dispatched' && (
+                    <button
+                      disabled={updatingId === selected.id}
+                      onClick={() => updateStatus(selected, 'En Route')}
+                      className="tactical-btn"
+                      style={{
+                        background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                        boxShadow: '0 0 16px rgba(14,165,233,0.4)',
+                        padding: '8px 16px', fontSize: '11.5px', fontWeight: '900', color: '#fff'
+                      }}
+                    >
+                      🚗 MARK EN ROUTE
+                    </button>
+                  )}
+
+                  {selected.status === 'En Route' && (
+                    <button
+                      disabled={updatingId === selected.id}
+                      onClick={() => updateStatus(selected, 'Arrived')}
+                      className="tactical-btn"
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        boxShadow: '0 0 16px rgba(16,185,129,0.4)',
+                        padding: '8px 16px', fontSize: '11.5px', fontWeight: '900', color: '#fff'
+                      }}
+                    >
+                      📍 MARK ARRIVED
+                    </button>
+                  )}
+
+                  {selected.status === 'Arrived' && (
+                    <button
+                      disabled={updatingId === selected.id}
+                      onClick={() => updateStatus(selected, 'Completed')}
+                      className="tactical-btn"
+                      style={{
+                        background: 'linear-gradient(135deg, #059669, #047857)',
+                        boxShadow: '0 0 16px rgba(5,150,105,0.4)',
+                        padding: '8px 16px', fontSize: '11.5px', fontWeight: '900', color: '#fff'
+                      }}
+                    >
+                      ✅ COMPLETE RESCUE
+                    </button>
+                  )}
+
+                  {(selected.status === 'Completed' || selected.status === 'Resolved' || selected.status === 'Closed') && (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px',
+                      padding: '6px 14px', borderRadius: '6px',
+                      background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)',
+                      color: '#10b981', fontSize: '11px', fontWeight: '900'
+                    }}>
+                      <span>✓</span>
+                      <span>OPERATION COMPLETED</span>
+                    </div>
+                  )}
+
+                  {/* Controlled Manual Stage Override */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOverrideTargetStatus(selected.status);
+                      setShowOverrideModal(true);
+                    }}
+                    className="tactical-btn"
+                    style={{
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#cbd5e1',
+                      padding: '8px 12px',
+                      fontSize: '11px',
+                      fontWeight: '800'
+                    }}
+                    title="Manually override rescue stage when GPS is offline or unconfirmed"
+                  >
+                    ⚙️ MANUAL STAGE OVERRIDE
+                  </button>
                 </div>
               </div>
 
               {/* Assignment Confirmation Action Bar */}
               {!selected.subadmin_confirmed_at ? (
                 <div style={{
-                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(234, 88, 12, 0.15))',
-                  border: '1px solid rgba(245, 158, 11, 0.4)',
+                  background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.18), rgba(245, 158, 11, 0.18))',
+                  border: '1.5px solid #f43f5e',
                   borderRadius: '10px',
-                  padding: '14px 18px',
+                  padding: '16px 20px',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  gap: '14px'
+                  gap: '16px',
+                  boxShadow: '0 0 25px rgba(244,63,94,0.25)'
                 }}>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: '900', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span>⚠️</span>
-                      <span>EMERGENCY ASSIGNED TO YOUR SECTOR • CONFIRMATION REQUIRED</span>
+                    <div style={{ fontSize: '14px', fontWeight: '900', color: '#f43f5e', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>🚨</span>
+                      <span>YOU HAVE BEEN ASSIGNED TO MANAGE THIS EMERGENCY</span>
                     </div>
-                    <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '3px' }}>
-                      Command Admin assigned this emergency to your sector. Confirming triggers real-time alerts to both Admin and Citizen.
+                    <div style={{ fontSize: '11.5px', color: '#cbd5e1', marginTop: '4px' }}>
+                      Command Admin assigned this incident to you. Accept emergency responsibility to update status to <b>ACCEPTED</b> and mobilize response units.
                     </div>
                   </div>
                   <button
@@ -925,16 +1152,16 @@ export default function SubAdminDashboard({ user, onLogout }) {
                     style={{
                       background: 'linear-gradient(135deg, #10b981, #059669)',
                       color: '#fff',
-                      padding: '12px 22px',
+                      padding: '12px 24px',
                       fontWeight: '900',
-                      fontSize: '12.5px',
+                      fontSize: '13px',
                       boxShadow: '0 0 20px rgba(16, 185, 129, 0.5)',
                       whiteSpace: 'nowrap',
                       border: 'none',
                       cursor: 'pointer'
                     }}
                   >
-                    {confirming ? 'CONFIRMING...' : '⚡ CONFIRM ASSIGNMENT (NOTIFY ALL)'}
+                    {confirming ? 'ACCEPTING...' : '⚡ ACCEPT EMERGENCY RESPONSIBILITY'}
                   </button>
                 </div>
               ) : (
@@ -950,14 +1177,116 @@ export default function SubAdminDashboard({ user, onLogout }) {
                   <span style={{ fontSize: '16px' }}>✅</span>
                   <div>
                     <div style={{ fontSize: '11.5px', color: '#10b981', fontWeight: '800' }}>
-                      ASSIGNMENT CONFIRMED BY SECTOR DISPATCH
+                      EMERGENCY RESPONSIBILITY ACCEPTED BY DISPATCHER
                     </div>
                     <div style={{ fontSize: '10.5px', color: '#94a3b8' }}>
-                      Receipt confirmed at {new Date(selected.subadmin_confirmed_at).toLocaleTimeString()}. Admin and Citizen notified.
+                      Accepted at {new Date(selected.subadmin_confirmed_at).toLocaleTimeString()}. Admin & Citizen notified in real-time.
                     </div>
                   </div>
                 </div>
               )}
+
+              {/* Incident Tactical Dossier Card */}
+              <div className="glass-panel" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8', letterSpacing: '1px' }}>
+                    TACTICAL INCIDENT DOSSIER • #{selected.id}
+                  </span>
+                  <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+                    Time of SOS: <b style={{ color: '#cbd5e1' }}>{new Date(selected.reported_at || selected.createdAt).toLocaleString()}</b>
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div><b>Citizen Name:</b> <span style={{ color: '#cbd5e1' }}>{selected.requester?.profile?.first_name || 'Citizen'} {selected.requester?.profile?.last_name || ''}</span></div>
+                    <div><b>Citizen Contact:</b> <a href={`tel:${selected.contact_number || selected.requester?.phone_number}`} style={{ color: '#38bdf8', textDecoration: 'none', fontWeight: '700' }}>{selected.contact_number || selected.requester?.phone_number || 'N/A'}</a></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <b>Emergency Categories:</b> <EmergencyBadges incident={selected} size="small" />
+                    </div>
+                    <div><b>Location:</b> <span style={{ color: '#cbd5e1' }}>{selected.address_location || 'GPS Captured'}</span></div>
+                    <div className="mono-text" style={{ fontSize: '11px', color: '#64748b' }}>GPS: {selected.latitude}, {selected.longitude}</div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div><b>Assigned Department:</b> <span style={{ color: '#38bdf8', fontWeight: '700' }}>{selected.assigned_department || selected.target_agency || 'Rescue Services'}</span></div>
+                    <div><b>Assigned Responder / Commander:</b> <span style={{ color: '#cbd5e1' }}>{selected.responder_name || 'Awaiting unit dispatch'}</span></div>
+                    <div><b>Response Unit ID / Vehicle:</b> <span style={{ color: '#cbd5e1' }}>{selected.responder_unit || 'Awaiting rollout'}</span></div>
+                    <div><b>Responder Contact Number:</b> <span style={{ color: '#cbd5e1' }}>{selected.responder_phone || 'N/A'}</span></div>
+                    <div><b>Current Emergency Status:</b> <span style={{ fontWeight: '800', color: STATUS_COLOR[selected.status] || '#10b981' }}>{selected.status.toUpperCase()}</span></div>
+                  </div>
+                </div>
+
+                {selected.dispatcher_notes && (
+                  <div style={{ marginTop: '4px', padding: '8px 10px', borderRadius: '6px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', fontSize: '11.5px' }}>
+                    <b style={{ color: '#94a3b8' }}>Dispatcher Tactical Notes:</b> <span style={{ color: '#cbd5e1' }}>{selected.dispatcher_notes}</span>
+                  </div>
+                )}
+
+                {/* Sequential Next-Stage Action Bar */}
+                <div style={{ display: 'flex', gap: '10px', marginTop: '4px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  {selected.status === 'Accepted' && (
+                    <button
+                      disabled={updatingId === selected.id}
+                      onClick={() => openDispatchModal(selected)}
+                      className="tactical-btn"
+                      style={{
+                        flex: 1, justifyContent: 'center', padding: '10px', fontSize: '12px',
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        boxShadow: '0 0 15px rgba(16,185,129,0.4)',
+                        fontWeight: '900'
+                      }}
+                    >
+                      🚀 DISPATCH RESPONDER UNIT (AUTHORIZE ROLLOUT)
+                    </button>
+                  )}
+                  {selected.status === 'Responder Dispatched' && (
+                    <button
+                      disabled={updatingId === selected.id}
+                      onClick={() => updateStatus(selected, 'En Route')}
+                      className="tactical-btn"
+                      style={{
+                        flex: 1, justifyContent: 'center', padding: '10px', fontSize: '12px',
+                        background: 'linear-gradient(135deg, #0284c7, #0ea5e9)',
+                        boxShadow: '0 0 15px rgba(14,165,233,0.4)',
+                        fontWeight: '900'
+                      }}
+                    >
+                      🚗 CONFIRM EN ROUTE (UNITS IN TRANSIT)
+                    </button>
+                  )}
+                  {selected.status === 'En Route' && (
+                    <button
+                      disabled={updatingId === selected.id}
+                      onClick={() => updateStatus(selected, 'Arrived')}
+                      className="tactical-btn"
+                      style={{
+                        flex: 1, justifyContent: 'center', padding: '10px', fontSize: '12px',
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        boxShadow: '0 0 15px rgba(16,185,129,0.4)',
+                        fontWeight: '900'
+                      }}
+                    >
+                      📍 CONFIRM ARRIVED ON SCENE
+                    </button>
+                  )}
+                  {selected.status === 'Arrived' && (
+                    <button
+                      disabled={updatingId === selected.id}
+                      onClick={() => updateStatus(selected, 'Completed')}
+                      className="tactical-btn"
+                      style={{
+                        flex: 1, justifyContent: 'center', padding: '10px', fontSize: '12px',
+                        background: 'linear-gradient(135deg, #059669, #047857)',
+                        boxShadow: '0 0 15px rgba(5,150,105,0.4)',
+                        fontWeight: '900'
+                      }}
+                    >
+                      ✅ COMPLETE EMERGENCY RESPONSE (ARCHIVE)
+                    </button>
+                  )}
+                </div>
+              </div>
 
               {/* Dynamic Telemetry Metric Strip */}
               {selected.metrics && (
@@ -1032,27 +1361,38 @@ export default function SubAdminDashboard({ user, onLogout }) {
                       </Popup>
                     </Marker>
 
-                    {/* Responder Live GPS Marker (Only if actual GPS coordinates exist) */}
-                    {selected.responder_lat && selected.responder_lng && !isNaN(parseFloat(selected.responder_lat)) && !isNaN(parseFloat(selected.responder_lng)) && parseFloat(selected.responder_lat) !== 0 ? (
-                      <>
-                        <Marker position={[parseFloat(selected.responder_lat), parseFloat(selected.responder_lng)]} icon={responderPin}>
-                          <Popup>
-                            <b>{selected.responder_unit || 'Responder Unit'}</b><br />
-                            Speed: {selected.metrics?.speedKmh || selected.speed || 0} km/h
-                          </Popup>
-                        </Marker>
-                        <Polyline
-                          positions={[
-                            [parseFloat(selected.responder_lat), parseFloat(selected.responder_lng)],
-                            [parseFloat(selected.latitude), parseFloat(selected.longitude)],
-                          ]}
-                          pathOptions={{ color: '#0ea5e9', weight: 2, dashArray: '6,6' }}
-                        />
-                        <MapFlyTo lat={parseFloat(selected.responder_lat)} lng={parseFloat(selected.responder_lng)} />
-                      </>
-                    ) : (
-                      <MapFlyTo lat={parseFloat(selected.latitude)} lng={parseFloat(selected.longitude)} />
-                    )}
+                    {/* Responder Live GPS Marker (renders whenever coordinates exist or status is dispatched/en route/arrived) */}
+                    {(() => {
+                      const effLat = (selected.responder_lat && !isNaN(parseFloat(selected.responder_lat)) && parseFloat(selected.responder_lat) !== 0)
+                        ? parseFloat(selected.responder_lat)
+                        : (['Responder Dispatched', 'En Route', 'Arrived'].includes(selected.status) && responderPos.lat ? parseFloat(responderPos.lat) : null);
+                      const effLng = (selected.responder_lng && !isNaN(parseFloat(selected.responder_lng)) && parseFloat(selected.responder_lng) !== 0)
+                        ? parseFloat(selected.responder_lng)
+                        : (['Responder Dispatched', 'En Route', 'Arrived'].includes(selected.status) && responderPos.lng ? parseFloat(responderPos.lng) : null);
+
+                      if (effLat && effLng) {
+                        return (
+                          <>
+                            <Marker position={[effLat, effLng]} icon={responderPin}>
+                              <Popup>
+                                <b>{selected.responder_unit || 'Responder Unit'}</b><br />
+                                Speed: {selected.metrics?.speedKmh || selected.speed || 0} km/h<br />
+                                Status: {selected.status}
+                              </Popup>
+                            </Marker>
+                            <Polyline
+                              positions={[
+                                [effLat, effLng],
+                                [parseFloat(selected.latitude), parseFloat(selected.longitude)],
+                              ]}
+                              pathOptions={{ color: '#0ea5e9', weight: 2.5, dashArray: '6,6' }}
+                            />
+                            <MapFlyTo lat={effLat} lng={effLng} />
+                          </>
+                        );
+                      }
+                      return <MapFlyTo lat={parseFloat(selected.latitude)} lng={parseFloat(selected.longitude)} />;
+                    })()}
                   </MapContainer>
                 )}
               </div>
@@ -1128,6 +1468,296 @@ export default function SubAdminDashboard({ user, onLogout }) {
         </div>
 
       </div>
+
+      {/* 1. DISPATCH UNIT ASSIGNMENT MODAL (Prompt Section 4 & Section 8) */}
+      {showDispatchModal && selected && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+        }}>
+          <div style={{
+            background: '#0d1322', border: '1.5px solid #0ea5e9',
+            borderRadius: '12px', width: '100%', maxWidth: '620px',
+            padding: '24px', boxShadow: '0 0 40px rgba(14,165,233,0.3)',
+            display: 'flex', flexDirection: 'column', gap: '16px', color: '#f8fafc'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: '900', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>🚀</span>
+                  <span>DISPATCH RESCUE UNIT & AUTHORIZE ROLLOUT</span>
+                </div>
+                <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '2px' }}>
+                  Incident #{selected.id} • {selected.address_location || 'GPS Position'}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDispatchModal(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Department Selection */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label className="form-label" style={{ marginBottom: 0 }}>ASSIGNED DEPARTMENT / RESCUE SERVICE</label>
+                <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '800' }}>⚡ AUTO-POPULATED FROM CITIZEN SOS</span>
+              </div>
+              <input
+                className="tactical-input"
+                value={dispatchUnitForm.assigned_department}
+                onChange={(e) => setDispatchUnitForm((f) => ({ ...f, assigned_department: e.target.value }))}
+                placeholder="e.g. Medical, Fire, Police"
+              />
+            </div>
+
+            {/* Available Responders in Sector */}
+            {availableResponders.length > 0 && (
+              <div>
+                <label className="form-label">AVAILABLE REGISTERED UNITS IN SECTOR</label>
+                <select
+                  className="tactical-input"
+                  value={dispatchUnitForm.assigned_responder_id || ''}
+                  onChange={(e) => {
+                    const found = availableResponders.find((r) => r.id === parseInt(e.target.value));
+                    if (found) {
+                      setDispatchUnitForm((f) => ({
+                        ...f,
+                        assigned_responder_id: found.id,
+                        responder_name: found.name || f.responder_name,
+                        responder_unit: found.unit || f.responder_unit,
+                        responder_phone: found.phone || f.responder_phone,
+                      }));
+                    } else {
+                      setDispatchUnitForm((f) => ({ ...f, assigned_responder_id: null }));
+                    }
+                  }}
+                  style={{ cursor: 'pointer', color: '#38bdf8', fontWeight: '700' }}
+                >
+                  <option value="">-- Select from Available Tactical Units --</option>
+                  {availableResponders.map((u) => (
+                    <option key={u.id} value={u.id} style={{ background: '#0b1120', color: '#fff' }}>
+                      {u.unit} — {u.name} ({u.department || 'Rescue'}) • {u.phone}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Responder & Vehicle Details */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label className="form-label">ASSIGNED RESPONDER / COMMANDER</label>
+                <input
+                  className="tactical-input"
+                  value={dispatchUnitForm.responder_name}
+                  onChange={(e) => setDispatchUnitForm((f) => ({ ...f, responder_name: e.target.value }))}
+                  placeholder="Commander Name"
+                />
+              </div>
+              <div>
+                <label className="form-label">RESPONSE UNIT ID / VEHICLE</label>
+                <input
+                  className="tactical-input"
+                  value={dispatchUnitForm.responder_unit}
+                  onChange={(e) => setDispatchUnitForm((f) => ({ ...f, responder_unit: e.target.value }))}
+                  placeholder="e.g. MEDIC-AMBULANCE-01"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label className="form-label">RESPONDER CONTACT NUMBER</label>
+                <input
+                  className="tactical-input"
+                  value={dispatchUnitForm.responder_phone}
+                  onChange={(e) => setDispatchUnitForm((f) => ({ ...f, responder_phone: e.target.value }))}
+                  placeholder="0917-xxx-xxxx"
+                />
+              </div>
+              <div>
+                <label className="form-label">DISPATCH TACTICAL NOTES</label>
+                <input
+                  className="tactical-input"
+                  value={dispatchUnitForm.dispatcher_notes}
+                  onChange={(e) => setDispatchUnitForm((f) => ({ ...f, dispatcher_notes: e.target.value }))}
+                  placeholder="Notes for unit rollout..."
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <button
+                disabled={dispatchingUnit}
+                onClick={handleConfirmDispatch}
+                className="tactical-btn"
+                style={{
+                  flex: 1, justifyContent: 'center', padding: '12px',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  boxShadow: '0 0 20px rgba(16,185,129,0.4)',
+                  fontSize: '13px', fontWeight: '900', color: '#fff'
+                }}
+              >
+                {dispatchingUnit ? 'CONFIRMING ROLLOUT...' : '🚀 CONFIRM DISPATCH & AUTHORIZE ROLLOUT'}
+              </button>
+              <button
+                onClick={() => setShowDispatchModal(false)}
+                className="tactical-btn secondary"
+                style={{ width: '100px', justifyContent: 'center' }}
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. MANUAL STAGE OVERRIDE MODAL (Prompt Section 8 & Section 9) */}
+      {showOverrideModal && selected && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+        }}>
+          <div style={{
+            background: '#0d1322', border: '1.5px solid #f43f5e',
+            borderRadius: '12px', width: '100%', maxWidth: '580px',
+            padding: '24px', boxShadow: '0 0 40px rgba(244,63,94,0.3)',
+            display: 'flex', flexDirection: 'column', gap: '16px', color: '#f8fafc'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: '900', color: '#f43f5e', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>⚙️</span>
+                  <span>MANUAL RESCUE STAGE OVERRIDE</span>
+                </div>
+                <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '2px' }}>
+                  Duty Dispatcher Override Control • Incident #{selected.id}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowOverrideModal(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.3)', borderRadius: '8px', padding: '10px 14px', fontSize: '11.5px', color: '#fca5a5' }}>
+              ⚠️ <b>Operational Intervention Notice:</b> Use manual override when GPS telemetry is offline, device batteries are drained, or field verbal reports (radio) indicate the stage has progressed. This will be permanently recorded in the audit log.
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '700' }}>CURRENT RESCUE STAGE:</span>
+              <span style={{
+                fontSize: '12px', fontWeight: '900', padding: '4px 10px', borderRadius: '5px',
+                background: 'rgba(14,165,233,0.18)', color: '#38bdf8', border: '1px solid rgba(14,165,233,0.3)'
+              }}>
+                {selected.status.toUpperCase()}
+              </span>
+            </div>
+
+            {/* Target Stage Selector */}
+            <div>
+              <label className="form-label">SELECT TARGET RESCUE STAGE</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginTop: '6px' }}>
+                {STATUS_FLOW.map((stage) => {
+                  const isSel = overrideTargetStatus === stage;
+                  return (
+                    <button
+                      type="button"
+                      key={stage}
+                      onClick={() => setOverrideTargetStatus(stage)}
+                      style={{
+                        padding: '10px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800', cursor: 'pointer',
+                        background: isSel ? '#f43f5e' : 'rgba(255,255,255,0.04)',
+                        border: isSel ? '1.5px solid #f43f5e' : '1px solid rgba(255,255,255,0.08)',
+                        color: isSel ? '#ffffff' : '#94a3b8',
+                        boxShadow: isSel ? '0 0 12px rgba(244,63,94,0.4)' : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {stage}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Quick Reason Suggestions */}
+            <div>
+              <label className="form-label">QUICK OVERRIDE REASONS</label>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                {[
+                  'Confirmed Arrival via Two-Way Radio',
+                  'GPS Hardware Offline / Telemetry Lost',
+                  'Unit Started Moving (En Route)',
+                  'Operation Finished - Verified by Commander',
+                  'Manual Tactical State Correction'
+                ].map((reason) => (
+                  <button
+                    type="button"
+                    key={reason}
+                    onClick={() => setOverrideReason(reason)}
+                    style={{
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: '#cbd5e1',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    + {reason}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reason / Notes Textarea */}
+            <div>
+              <label className="form-label">TACTICAL OVERRIDE REASON & AUDIT NOTES *</label>
+              <textarea
+                className="tactical-input"
+                rows={3}
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                placeholder="Detail reason for manual intervention (e.g. Unit confirmed arrived on scene via radio, GPS offline)..."
+                style={{ resize: 'none', marginTop: '4px' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <button
+                disabled={applyingOverride || !overrideTargetStatus}
+                onClick={handleApplyOverride}
+                className="tactical-btn danger"
+                style={{
+                  flex: 1, justifyContent: 'center', padding: '12px',
+                  background: 'linear-gradient(135deg, #f43f5e, #e11d48)',
+                  boxShadow: '0 0 20px rgba(244,63,94,0.4)',
+                  fontSize: '13px', fontWeight: '900', color: '#fff'
+                }}
+              >
+                {applyingOverride ? 'APPLYING OVERRIDE...' : `✓ APPLY OVERRIDE TO "${overrideTargetStatus.toUpperCase()}"`}
+              </button>
+              <button
+                onClick={() => setShowOverrideModal(false)}
+                className="tactical-btn secondary"
+                style={{ width: '100px', justifyContent: 'center' }}
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Notification Toast */}
       {notification && (

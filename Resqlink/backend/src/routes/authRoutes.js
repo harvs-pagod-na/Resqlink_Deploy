@@ -24,5 +24,6 @@ router.post('/forgot-password/reset-password', authController.forgotPasswordRese
 router.post('/refresh-token', authController.refreshToken);
 router.get('/me', authenticate, authController.me);
 router.post('/sub-admin', authenticate, authController.createSubAdmin);
+router.post('/responder', authenticate, authController.createResponder);
 
 module.exports = router;

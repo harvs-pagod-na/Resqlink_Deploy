@@ -1,5 +1,6 @@
 const socketIo = require('socket.io');
 const { processTelemetryPing } = require('../services/telemetryService');
+const { handleLiveLocationAndProgression } = require('../services/stageProgressionService');
 
 function initSocket(server) {
   const io = socketIo(server, {
@@ -44,11 +45,29 @@ function initSocket(server) {
       console.log(`[SOCKET] Socket ${socket.id} left rescue room resq_${resqId}`);
     });
 
-    // 3. High-Frequency Bi-Directional Telemetry Stream (1Hz Reporter <-> Responder)
+    // 3. High-Frequency Bi-Directional Telemetry Stream & Automatic Stage Progression
     socket.on('telemetry_ping', async (data) => {
       try {
-        const { request_id, user_id, role, latitude, longitude, speed, heading } = data;
+        const { request_id, user_id, role, latitude, longitude, speed, heading, responder_name, responder_unit } = data;
         if (!request_id || !latitude || !longitude) return;
+
+        // Automatic Stage Progression (Responder Dispatched -> En Route -> Arrived)
+        if (role === 'responder' || role === 'sub_admin' || role === 'admin' || !role) {
+          await handleLiveLocationAndProgression({
+            requestId: request_id,
+            responderLat: latitude,
+            responderLng: longitude,
+            speed: speed || 0,
+            heading: heading || 0,
+            actorInfo: {
+              userId: user_id,
+              name: responder_name,
+              unit: responder_unit,
+              role: role || 'responder',
+            },
+            io,
+          });
+        }
 
         const telemetryResult = await processTelemetryPing(
           request_id,
@@ -87,23 +106,44 @@ function initSocket(server) {
       }
     });
 
-    // Legacy update_responder_location backward compatibility
+    // Legacy update_responder_location backward compatibility with auto-progression
     socket.on('update_responder_location', async (data) => {
-      if (data && data.request_id && data.responder_lat && data.responder_lng) {
+      if (data && data.request_id && (data.responder_lat || data.latitude) && (data.responder_lng || data.longitude)) {
         try {
+          const lat = data.responder_lat || data.latitude;
+          const lng = data.responder_lng || data.longitude;
+
+          // Automatic Stage Progression (Responder Dispatched -> En Route -> Arrived)
+          await handleLiveLocationAndProgression({
+            requestId: data.request_id,
+            responderLat: lat,
+            responderLng: lng,
+            speed: data.speed || 0,
+            heading: data.heading || 0,
+            actorInfo: {
+              userId: data.user_id,
+              name: data.responder_name,
+              unit: data.responder_unit,
+              role: data.role || 'responder',
+            },
+            io,
+          });
+
           const telemetryResult = await processTelemetryPing(
             data.request_id,
             data.user_id || 'responder',
             'responder',
             {
-              latitude: data.responder_lat,
-              longitude: data.responder_lng,
-              speed: 11.11,
-              heading: 0,
+              latitude: lat,
+              longitude: lng,
+              speed: data.speed || 11.11,
+              heading: data.heading || 0,
             }
           );
           const payload = {
             ...data,
+            responder_lat: parseFloat(lat),
+            responder_lng: parseFloat(lng),
             metrics: telemetryResult.metrics,
           };
           io.to(`resq_${data.request_id}`).emit(`resq_live_location_${data.request_id}`, payload);
