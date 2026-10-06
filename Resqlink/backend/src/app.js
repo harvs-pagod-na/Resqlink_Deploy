@@ -95,27 +95,55 @@ server.on('error', (err) => {
 });
 
 const PORT = process.env.PORT || 3000;
-sequelize.sync().then(async () => {
-  if (process.env.AUTO_SEED === 'true') {
+
+async function bootstrapServer() {
+  try {
+    await sequelize.authenticate();
+    console.log('[DB] Database connection established successfully.');
+
+    // Ensure we are working inside a writable schema rather than the read-only 'sys' schema
+    try {
+      const [results] = await sequelize.query('SELECT DATABASE() AS current_db;');
+      const currentDb = results[0]?.current_db;
+      console.log(`[DB] Connected database schema: ${currentDb}`);
+      if (!currentDb || currentDb === 'sys') {
+        console.log('[DB] Detected system schema. Switching to writable database...');
+        try {
+          await sequelize.query('CREATE DATABASE IF NOT EXISTS `resqlink_db`;');
+          await sequelize.query('USE `resqlink_db`;');
+        } catch (_) {
+          await sequelize.query('USE `test`;');
+        }
+      }
+    } catch (schemaErr) {
+      console.warn('[DB NOTICE] Schema verification:', schemaErr.message);
+    }
+
+    // Synchronize all database models
+    await sequelize.sync();
+    console.log('[DB] Database models synchronized successfully.');
+
+    // Auto-seed if database has no accounts or AUTO_SEED is enabled
     try {
       const { User } = require('./models');
-      const count = await User.count();
-      if (count === 0) {
-        console.log('[AUTO-SEED] Fresh database detected. Seeding official accounts...');
-        const path = require('path');
-        require(path.join(__dirname, '../reset_and_seed_admins'));
+      const userCount = await User.count().catch(() => 0);
+      if (userCount === 0 || process.env.AUTO_SEED === 'true') {
+        console.log('[AUTO-SEED] Seeding official admin accounts and responder units...');
+        const resetAndSeed = require('../reset_and_seed_admins');
+        const seedResponders = require('../seed_responders');
+        await resetAndSeed().catch(err => console.warn('[AUTO-SEED] Admin seed notice:', err.message));
+        await seedResponders().catch(err => console.warn('[AUTO-SEED] Responder seed notice:', err.message));
       }
     } catch (seedErr) {
-      console.warn('[AUTO-SEED NOTICE]', seedErr.message);
+      console.warn('[AUTO-SEED WARNING]', seedErr.message);
     }
+  } catch (err) {
+    console.error('[DB BOOTSTRAP WARNING]', err.message);
   }
 
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
   });
-}).catch(err => {
-  console.error('[DB SYNC WARNING]', err.message);
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT} (with DB sync warning)`);
-  });
-});
+}
+
+bootstrapServer();

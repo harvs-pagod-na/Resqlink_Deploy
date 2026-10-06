@@ -203,11 +203,20 @@ async function seedResponders() {
     console.log('✅ SEEDING COMPLETE FOR ALL MUNICIPALITY RESPONDERS!');
     console.log(`Default Password: ${defaultPassword}`);
     console.log('======================================================');
-    process.exit(0);
+    if (require.main === module) {
+      process.exit(0);
+    }
   } catch (err) {
     console.error('❌ Seeding failed:', err);
-    process.exit(1);
+    if (require.main === module) {
+      process.exit(1);
+    }
+    throw err;
   }
 }
 
-seedResponders();
+module.exports = seedResponders;
+
+if (require.main === module) {
+  seedResponders();
+}

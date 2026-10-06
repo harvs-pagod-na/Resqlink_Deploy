@@ -4,7 +4,22 @@ const path = require('path');
 
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
-const connectionUri = process.env.DATABASE_URL || process.env.MYSQL_URL;
+const rawUri = process.env.DATABASE_URL || process.env.MYSQL_URL;
+let connectionUri = rawUri;
+
+if (connectionUri) {
+  try {
+    const parsed = new URL(connectionUri.replace(/^mysql:\/\//i, 'http://'));
+    if (!parsed.pathname || parsed.pathname === '/' || parsed.pathname === '/sys') {
+      // TiDB Cloud pre-creates the 'test' database for user tables
+      parsed.pathname = '/test';
+      connectionUri = parsed.toString().replace(/^http:\/\//i, 'mysql://');
+    }
+  } catch (e) {
+    // Keep raw URI
+  }
+}
+
 const isRemote = (process.env.DB_HOST && process.env.DB_HOST !== '127.0.0.1' && process.env.DB_HOST !== 'localhost') || !!connectionUri;
 const enableSSL = process.env.DB_SSL === 'true' || (isRemote && process.env.DB_SSL !== 'false');
 

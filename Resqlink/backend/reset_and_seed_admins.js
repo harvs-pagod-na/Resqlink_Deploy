@@ -179,11 +179,20 @@ async function resetAndSeed() {
     console.log(`Default Password for all accounts: ${defaultPassword}`);
     console.log('======================================================');
 
-    process.exit(0);
+    if (require.main === module) {
+      process.exit(0);
+    }
   } catch (error) {
     console.error('❌ Reset & Seed Failed:', error);
-    process.exit(1);
+    if (require.main === module) {
+      process.exit(1);
+    }
+    throw error;
   }
 }
 
-resetAndSeed();
+module.exports = resetAndSeed;
+
+if (require.main === module) {
+  resetAndSeed();
+}
