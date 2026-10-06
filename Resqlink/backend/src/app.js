@@ -85,7 +85,21 @@ server.on('error', (err) => {
 });
 
 const PORT = process.env.PORT || 3000;
-sequelize.sync().then(() => {
+sequelize.sync().then(async () => {
+  if (process.env.AUTO_SEED === 'true') {
+    try {
+      const { User } = require('./models');
+      const count = await User.count();
+      if (count === 0) {
+        console.log('[AUTO-SEED] Fresh database detected. Seeding official accounts...');
+        const path = require('path');
+        require(path.join(__dirname, '../reset_and_seed_admins'));
+      }
+    } catch (seedErr) {
+      console.warn('[AUTO-SEED NOTICE]', seedErr.message);
+    }
+  }
+
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
   });

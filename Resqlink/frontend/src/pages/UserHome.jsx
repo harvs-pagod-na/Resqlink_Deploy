@@ -12,10 +12,9 @@ import {
   geocodePampangaAddress,
 } from '../data/PampangaData';
 import { EmergencyBadges, CriticalBadge, EmergencyStatusTracker, EMERGENCY_STATUS_STEPS } from '../utils/emergencyHelper';
+import { getSocketUrl } from '../utils/urlHelper';
 
-const SOCKET_URL = typeof window !== 'undefined' 
-  ? (window.location.port === '5173' ? window.location.origin : (import.meta.env.VITE_API_URL?.replace('/api', '') || `http://${window.location.hostname}:3000`))
-  : 'http://localhost:3000';
+const SOCKET_URL = getSocketUrl();
 
 const userPin = L.divIcon({
   className: '',

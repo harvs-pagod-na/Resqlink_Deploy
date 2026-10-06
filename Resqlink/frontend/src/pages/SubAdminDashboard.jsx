@@ -5,10 +5,9 @@ import api from '../api';
 import { io } from 'socket.io-client';
 import { RESQLINK_TOWN_CENTERS } from '../data/PampangaData';
 import { EmergencyBadges, CriticalBadge, CriticalWarningLogo, getIncidentEmergencies, EmergencyStatusTracker, EMERGENCY_STATUS_STEPS, RESCUE_DEPARTMENTS, mapEmergencyCategoriesToDepartments } from '../utils/emergencyHelper';
+import { getSocketUrl } from '../utils/urlHelper';
 
-const SOCKET_URL = typeof window !== 'undefined' 
-  ? (window.location.port === '5173' ? window.location.origin : (import.meta.env.VITE_API_URL?.replace('/api', '') || `http://${window.location.hostname}:3000`))
-  : 'http://localhost:3000';
+const SOCKET_URL = getSocketUrl();
 
 const STATUS_COLOR = {
   Pending: '#f59e0b',

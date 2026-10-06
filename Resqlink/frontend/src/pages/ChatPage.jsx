@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Paperclip, MessageSquare, User, ArrowLeft, Image as ImageIcon } from 'lucide-react';
 import io from 'socket.io-client';
 import api from '../api';
+import { getSocketUrl } from '../utils/urlHelper';
 
 let socket;
 
@@ -14,7 +15,7 @@ export default function ChatPage({ user }) {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    socket = io();
+    socket = io(getSocketUrl(), { transports: ['websocket', 'polling'] });
     if (user?.id) {
       socket.emit('join_user_room', user.id);
     }

@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import api from '../api';
+import { getSocketUrl } from '../utils/urlHelper';
 
 let socketInstance = null;
 
 const getSocket = () => {
   if (!socketInstance) {
-    socketInstance = io();
+    socketInstance = io(getSocketUrl(), { transports: ['websocket', 'polling'] });
   }
   return socketInstance;
 };

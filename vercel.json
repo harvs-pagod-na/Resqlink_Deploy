@@ -1,0 +1,11 @@
+{
+  "buildCommand": "cd Resqlink/frontend && npm install && npm run build",
+  "outputDirectory": "Resqlink/frontend/dist",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

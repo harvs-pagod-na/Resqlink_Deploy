@@ -1,15 +1,15 @@
 import axios from 'axios';
 
-// Detect whether to use direct backend address or local /api proxy
+// Detect whether to use direct backend address, configured environment URL, or local proxy
 const getBaseURL = () => {
-  // If accessing from another device (LAN IP or domain), always use relative /api
-  // to route through Vite's dev server without CORS or port 3000 blocks.
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return '/api';
+  // If explicitly configured via environment variable (e.g. on Vercel deployment)
+  const envUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_SERVER_URL ? `${import.meta.env.VITE_SERVER_URL}/api` : null);
+  if (envUrl) {
+    const cleanUrl = envUrl.trim().replace(/\/+$/, '');
+    return cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`;
   }
-  if (import.meta.env.VITE_API_URL && !import.meta.env.VITE_API_URL.includes('localhost')) {
-    return import.meta.env.VITE_API_URL;
-  }
+
+  // Local development fallback
   return '/api';
 };
 
