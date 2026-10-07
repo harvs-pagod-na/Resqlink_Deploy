@@ -833,6 +833,14 @@ const TOWN_CONFIG = {
   Guagua: { color: '#34d399', bg: 'rgba(52, 211, 153, 0.12)', border: 'rgba(52, 211, 153, 0.35)', coords: [14.9667, 120.6333], label: 'GUAGUA' },
 };
 
+const DEPT_CONFIG = {
+  Medical: { label: 'Medical', icon: '🚑', color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.35)' },
+  Police: { label: 'Police', icon: '🚔', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.12)', border: 'rgba(56, 189, 248, 0.35)' },
+  Fire: { label: 'Fire', icon: '🚒', color: '#f43f5e', bg: 'rgba(244, 63, 94, 0.12)', border: 'rgba(244, 63, 94, 0.35)' },
+  Rescue: { label: 'Rescue', icon: '⛑️', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.35)' },
+  MDRRMO: { label: 'Rescue', icon: '⛑️', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.35)' },
+};
+
 function detectMunicipality(obj) {
   if (obj?.municipality && ['Porac', 'Santa Rita', 'Guagua'].includes(obj.municipality)) {
     return obj.municipality;
@@ -3848,7 +3856,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   <div style={{ fontSize: '11px', fontWeight: '800', color: '#f59e0b' }}>⚡ TACTICAL UNIT & TELEMETRY</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#64748b' }}>DEPARTMENT:</span>
-                    <span style={{ fontWeight: '800', color: DEPT_CONFIG[getResponderDept(selectedUserDossier)]?.color }}>
+                    <span style={{ fontWeight: '800', color: (DEPT_CONFIG[getResponderDept(selectedUserDossier)] || DEPT_CONFIG.Medical)?.color }}>
                       {getResponderDept(selectedUserDossier)}
                     </span>
                   </div>
