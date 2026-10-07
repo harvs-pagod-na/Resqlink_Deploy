@@ -340,6 +340,8 @@ export default function ResponderPortal({ user, onLogout }) {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '8px',
         position: 'sticky',
         top: 0,
         zIndex: 500,

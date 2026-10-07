@@ -831,18 +831,27 @@ export default function UserHome({ user, onLogout }) {
         /* ── MOBILE BREAKPOINTS (<= 640px) ── */
         @media (max-width: 640px) {
           .resq-header {
-            height: 54px;
-            padding: 0 12px;
+            height: auto;
+            min-height: 54px;
+            padding: 8px 12px;
+            flex-wrap: wrap;
+            gap: 8px;
           }
           .resq-header-title {
-            font-size: 13.5px !important;
+            font-size: 13px !important;
             letter-spacing: 1px !important;
           }
           .desktop-only {
-            display: none !important;
+            display: inline-block !important;
+            font-size: 9.5px !important;
+            padding-left: 8px !important;
           }
           .resq-header-gps {
-            display: none !important;
+            display: flex !important;
+            padding: 3px 8px !important;
+          }
+          .resq-header-gps span {
+            font-size: 10px !important;
           }
           .resq-nav-scroll {
             padding: 10px 12px 0;
@@ -887,6 +896,16 @@ export default function UserHome({ user, onLogout }) {
             grid-template-columns: 1fr;
             gap: 8px;
           }
+          .resq-household-grid {
+            grid-template-columns: 1fr !important;
+            gap: 6px !important;
+          }
+        }
+        .resq-household-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 8px;
+          margin-top: 4px;
         }
       `}</style>
 
@@ -1573,7 +1592,7 @@ export default function UserHome({ user, onLogout }) {
               {/* Household Counts */}
               <div>
                 <label className="form-label">HOUSEHOLD OCCUPANT COUNT (FOR EVACUATION LOGISTICS)</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginTop: '4px' }}>
+                <div className="resq-household-grid">
                   <div>
                     <span style={{ fontSize: '10px', color: '#94a3b8' }}>Total:</span>
                     <input

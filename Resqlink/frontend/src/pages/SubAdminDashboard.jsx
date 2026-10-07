@@ -737,26 +737,83 @@ export default function SubAdminDashboard({ user, onLogout }) {
         /* Custom scrollbar */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+        /* ── RESPONSIVE SUB-ADMIN UTILITIES ── */
+        .subadmin-header {
+          min-height: 60px;
+          height: auto;
+          padding: 10px 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          background: rgba(7, 10, 19, 0.9);
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          backdrop-filter: blur(20px);
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .subadmin-kpi-grid {
+          padding: 16px 24px 0;
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 14px;
+        }
+        .subadmin-deck {
+          padding: 16px 24px;
+          display: grid;
+          grid-template-columns: 440px 1fr;
+          gap: 16px;
+          height: calc(100vh - 170px);
+        }
+        .subadmin-queue-pane {
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+        .subadmin-detail-pane {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          overflow-y: auto;
+        }
+
+        @media (max-width: 1024px) {
+          .subadmin-header {
+            padding: 10px 14px !important;
+          }
+          .subadmin-kpi-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            padding: 14px 14px 0 !important;
+            gap: 10px !important;
+          }
+          .subadmin-deck {
+            padding: 12px 10px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            height: auto !important;
+            gap: 14px !important;
+          }
+          .subadmin-queue-pane {
+            max-height: 380px !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .subadmin-kpi-grid {
+            grid-template-columns: 1fr !important;
+            padding: 12px 10px 0 !important;
+            gap: 8px !important;
+          }
+        }
       `}</style>
 
       {/* TOP TACTICAL COMMAND HEADER */}
-      <header style={{
-        height: '60px',
-        padding: '0 24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-        background: 'rgba(7, 10, 19, 0.9)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        backdropFilter: 'blur(20px)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <header className="subadmin-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }} />
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981', flexShrink: 0 }} />
             <span style={{ fontSize: '15px', fontWeight: '900', letterSpacing: '2px', color: '#f8fafc' }}>
               RESQLINK<span style={{ color: '#0ea5e9' }}>.NOC</span>
             </span>
@@ -767,7 +824,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
         </div>
 
         {/* Real-time telemetry indicators */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '5px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>
             <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>SYS CLOCK</span>
             <span className="mono-text" style={{ fontSize: '12px', fontWeight: '700', color: '#38bdf8' }}>{currentTime} UTC</span>
@@ -788,7 +845,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
       </header>
 
       {/* TACTICAL KPI METRIC STRIP */}
-      <div style={{ padding: '16px 24px 0', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+      <div className="subadmin-kpi-grid">
         {[
           { label: 'TOTAL RECORDED SOS', val: kpis.total, icon: '📊', color: '#0ea5e9' },
           { label: 'PENDING TRIAGE', val: kpis.pending, icon: '🚨', color: '#f43f5e' },
@@ -806,10 +863,10 @@ export default function SubAdminDashboard({ user, onLogout }) {
       </div>
 
       {/* MAIN SPLIT DISPATCH DECK */}
-      <div style={{ padding: '16px 24px', display: 'grid', gridTemplateColumns: '440px 1fr', gap: '16px', height: 'calc(100vh - 170px)' }}>
+      <div className="subadmin-deck">
         
         {/* LEFT PANE: LIVE INCIDENT COMMAND QUEUE */}
-        <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="glass-panel subadmin-queue-pane">
           
           {/* Queue Filter Bar */}
           <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -976,7 +1033,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
         </div>
 
         {/* RIGHT PANE: MISSION RADAR, TELEMETRY & TACTICAL OPS */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'hidden' }}>
+        <div className="subadmin-detail-pane">
           
           {selected ? (
             <>

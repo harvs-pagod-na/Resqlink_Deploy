@@ -285,7 +285,8 @@ body {
   }
 
   .app-tagline {
-    display: none;
+    font-size: 10px;
+    opacity: 0.8;
   }
 
   .header-actions {
@@ -299,11 +300,12 @@ body {
   }
 
   .header-btn-label {
-    display: none;
+    font-size: 10px;
   }
 
   .header-role-text {
-    display: none;
+    font-size: 10px;
+    font-weight: 700;
   }
 
   .header-role-badge {
@@ -1119,4 +1121,15 @@ body {
 /* Tactical Dark Filter for OpenStreetMap Tiles */
 .tactical-dark-tile {
   filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%) !important;
+}
+
+/* Responsive Table Wrapper Utility */
+.resq-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.resq-table-scroll table {
+  min-width: 650px;
 }

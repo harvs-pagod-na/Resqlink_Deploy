@@ -104,7 +104,7 @@ export default function AuthPage({ onLoginSuccess }) {
   const availableBarangays = PAMPANGA_BARANGAYS_MAP[form.municipality] || [];
 
   return (
-    <div style={{
+    <div className="auth-wrapper" style={{
       minHeight: '100vh',
       backgroundColor: '#090d16',
       display: 'flex',
@@ -124,6 +124,25 @@ export default function AuthPage({ onLoginSuccess }) {
           padding: 32px 28px;
           box-shadow: 0 20px 40px rgba(0,0,0,0.5);
           box-sizing: border-box;
+        }
+        .auth-grid-2 {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+        @media (max-width: 480px) {
+          .auth-wrapper {
+            padding: 12px 10px !important;
+          }
+          .auth-card {
+            padding: 22px 16px !important;
+            border-radius: 12px !important;
+          }
+          .auth-grid-2 {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 10px !important;
+          }
         }
         .logo-section {
           text-align: center;
@@ -392,13 +411,13 @@ export default function AuthPage({ onLoginSuccess }) {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <div className="form-group" style={{ flex: 1 }}>
+            <div className="auth-grid-2">
+              <div className="form-group">
                 <label className="form-label">FIRST NAME</label>
                 <input className="auth-input" type="text" placeholder="Juan"
                   value={form.first_name} onChange={e => set('first_name', e.target.value)} required />
               </div>
-              <div className="form-group" style={{ flex: 1 }}>
+              <div className="form-group">
                 <label className="form-label">LAST NAME</label>
                 <input className="auth-input" type="text" placeholder="Dela Cruz"
                   value={form.last_name} onChange={e => set('last_name', e.target.value)} required />
@@ -417,7 +436,7 @@ export default function AuthPage({ onLoginSuccess }) {
                 value={form.phone_number} onChange={e => set('phone_number', e.target.value)} required />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div className="auth-grid-2">
               <div className="form-group">
                 <label className="form-label">MUNICIPALITY</label>
                 <select
@@ -460,13 +479,13 @@ export default function AuthPage({ onLoginSuccess }) {
                 <div style={{ fontSize: '11px', fontWeight: '800', color: '#f59e0b', marginBottom: '8px' }}>
                   🛡️ MDRRMO UNIT CREDENTIALS
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <div style={{ flex: 1 }}>
+                <div className="auth-grid-2">
+                  <div>
                     <label className="form-label">BADGE / ID NUMBER</label>
                     <input className="auth-input" type="text" placeholder="e.g. MDRRMO-POR-2026"
                       value={form.responder_badge_number} onChange={e => set('responder_badge_number', e.target.value)} required />
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div>
                     <label className="form-label">ASSIGNED UNIT / TEAM</label>
                     <input className="auth-input" type="text" placeholder="e.g. Ambulance Unit 01"
                       value={form.responder_unit} onChange={e => set('responder_unit', e.target.value)} required />
@@ -478,13 +497,13 @@ export default function AuthPage({ onLoginSuccess }) {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <div className="form-group" style={{ flex: 1 }}>
+            <div className="auth-grid-2">
+              <div className="form-group">
                 <label className="form-label">PASSWORD</label>
                 <input className="auth-input" type="password" placeholder="Min. 6 chars"
                   value={form.password} onChange={e => set('password', e.target.value)} required />
               </div>
-              <div className="form-group" style={{ flex: 1 }}>
+              <div className="form-group">
                 <label className="form-label">CONFIRM PASSWORD</label>
                 <input className="auth-input" type="password" placeholder="Repeat password"
                   value={form.confirm_password} onChange={e => set('confirm_password', e.target.value)} required />

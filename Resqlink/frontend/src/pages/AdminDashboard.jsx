@@ -1598,25 +1598,142 @@ export default function AdminDashboard({ user, onLogout }) {
           color: #34d399;
           border-color: rgba(52, 211, 153, 0.4);
         }
+
+        /* ── RESPONSIVE ADMIN UTILITIES ── */
+        .admin-header {
+          min-height: 60px;
+          height: auto;
+          padding: 10px 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          background: rgba(7, 10, 19, 0.9);
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          backdrop-filter: blur(20px);
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .admin-kpi-grid {
+          padding: 16px 24px 0;
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 14px;
+        }
+        .admin-nav-tabs {
+          padding: 16px 24px 0;
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .admin-content-pad {
+          padding: 16px 24px;
+        }
+        .admin-incident-card {
+          padding: 16px 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 14px;
+        }
+        .admin-incident-card-actions {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          flex-shrink: 0;
+        }
+        .admin-alerts-grid {
+          padding: 16px 24px;
+          display: grid;
+          grid-template-columns: 1.1fr 1.9fr;
+          gap: 16px;
+        }
+        .admin-analytics-grid-4 {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 14px;
+        }
+        .admin-analytics-split {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+        }
+        .resq-table-scroll {
+          width: 100%;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        .resq-table-scroll table {
+          min-width: 680px;
+        }
+
+        @media (max-width: 1024px) {
+          .admin-kpi-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            padding: 14px 16px 0 !important;
+            gap: 10px !important;
+          }
+          .admin-alerts-grid {
+            grid-template-columns: 1fr !important;
+            padding: 14px 16px !important;
+          }
+          .admin-analytics-grid-4 {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 10px !important;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .admin-header {
+            padding: 10px 14px !important;
+          }
+          .admin-kpi-grid {
+            grid-template-columns: 1fr !important;
+            padding: 12px 12px 0 !important;
+          }
+          .admin-nav-tabs {
+            padding: 12px 12px 0 !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            scrollbar-width: none !important;
+            gap: 6px !important;
+          }
+          .admin-nav-tabs::-webkit-scrollbar {
+            display: none !important;
+          }
+          .admin-content-pad {
+            padding: 12px 10px !important;
+          }
+          .admin-alerts-grid {
+            padding: 12px 10px !important;
+          }
+          .admin-incident-card {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            padding: 14px 12px !important;
+          }
+          .admin-incident-card-actions {
+            width: 100% !important;
+            justify-content: flex-end !important;
+            flex-wrap: wrap !important;
+          }
+          .admin-analytics-grid-4 {
+            grid-template-columns: 1fr !important;
+          }
+          .admin-analytics-split {
+            grid-template-columns: 1fr !important;
+          }
+        }
       `}</style>
 
       {/* TOP COMMAND HEADER */}
-      <header style={{
-        height: '60px',
-        padding: '0 24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-        background: 'rgba(7, 10, 19, 0.9)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        backdropFilter: 'blur(20px)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <header className="admin-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f43f5e', boxShadow: '0 0 10px #f43f5e' }} />
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f43f5e', boxShadow: '0 0 10px #f43f5e', flexShrink: 0 }} />
             <span style={{ fontSize: '15px', fontWeight: '900', letterSpacing: '2px', color: '#f8fafc' }}>
               RESQLINK<span style={{ color: '#f43f5e' }}>.ADMIN</span>
             </span>
@@ -1628,7 +1745,7 @@ export default function AdminDashboard({ user, onLogout }) {
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '5px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>
             <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>SYS TIME</span>
             <span className="mono-text" style={{ fontSize: '12px', fontWeight: '700', color: '#f43f5e' }}>{currentTime}</span>
@@ -1649,7 +1766,7 @@ export default function AdminDashboard({ user, onLogout }) {
       </header>
 
       {/* KPI METRICS BAR */}
-      <div style={{ padding: '16px 24px 0', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+      <div className="admin-kpi-grid">
         {[
           { label: 'ACTIVE INCIDENT QUEUE', val: requests.filter(r => isLiveEmergency(r.status)).length, icon: '📋', color: '#38bdf8' },
           { label: 'PENDING TRIAGE QUEUE', val: requests.filter(r => r.status === 'Pending').length, icon: '🚨', color: '#f43f5e' },
@@ -1667,7 +1784,7 @@ export default function AdminDashboard({ user, onLogout }) {
       </div>
 
       {/* NAVIGATION TABS WITH ALERTS AND ANALYTICS */}
-      <div style={{ padding: '16px 24px 0', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+      <div className="admin-nav-tabs">
         {[
           { id: 'incidents', label: 'INCIDENTS COMMAND QUEUE', icon: '🚨', badge: counts.pending ? `${counts.pending}` : null },
           { id: 'map', label: 'REGIONAL TACTICAL MAP', icon: '🗺️' },
@@ -1701,7 +1818,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
       {/* ==================== TAB 1: INCIDENTS COMMAND QUEUE ==================== */}
       {tab === 'incidents' && (
-        <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="admin-content-pad" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           
           {/* Dual Filtering Bar: Status + Municipality */}
           <div className="glass-panel" style={{ padding: '12px 18px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
@@ -1797,7 +1914,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 const townConf = TOWN_CONFIG[town] || TOWN_CONFIG.Porac;
 
                 return (
-                  <div key={r.id} className="glass-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={r.id} className="glass-card admin-incident-card">
                     <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                       <CriticalWarningLogo size={46} />
 
@@ -1852,7 +1969,7 @@ export default function AdminDashboard({ user, onLogout }) {
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div className="admin-incident-card-actions">
                       {r.status === 'Accepted' && (
                         <button
                           className="tactical-btn"
@@ -1898,7 +2015,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
       {/* ==================== TAB 2: REGIONAL TACTICAL MAP ==================== */}
       {tab === 'map' && (
-        <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="admin-content-pad" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           
           {/* Tactical Sector Control Bar */}
           <div className="glass-panel" style={{ padding: '12px 18px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
@@ -2093,10 +2210,10 @@ export default function AdminDashboard({ user, onLogout }) {
 
       {/* ==================== TAB 3: USER MANAGEMENT (ROLE-SEPARATED) ==================== */}
       {tab === 'users' && (
-        <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="admin-content-pad" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
           {/* PRIMARY CATEGORY SELECTION TABS */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+          <div className="admin-kpi-grid" style={{ padding: 0 }}>
             {[
               {
                 id: 'admins',
@@ -2463,7 +2580,7 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
 
           {/* DEDICATED TABLE CONTAINER */}
-          <div className="glass-panel" style={{ padding: '18px', overflowX: 'auto' }}>
+          <div className="glass-panel resq-table-scroll" style={{ padding: '18px' }}>
             
             {usersLoading ? (
               <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Loading directory records...</div>
@@ -3313,7 +3430,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
       {/* ==================== TAB 5: PUBLIC EMERGENCY ALERTS STUDIO ==================== */}
       {tab === 'alerts' && (
-        <div style={{ padding: '16px 24px', display: 'grid', gridTemplateColumns: '1.1fr 1.9fr', gap: '16px' }}>
+        <div className="admin-alerts-grid">
           
           {/* Create Alert Form */}
           <div className="glass-panel" style={{ padding: '20px' }}>
@@ -3512,9 +3629,9 @@ export default function AdminDashboard({ user, onLogout }) {
 
       {/* ==================== TAB 6: REAL-TIME SQL ANALYTICS & REPORTS ==================== */}
       {tab === 'analytics' && (
-        <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="admin-content-pad" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
-          <div className="glass-panel" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="glass-panel" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <div style={{ fontSize: '18px', fontWeight: '900', color: '#f8fafc' }}>
                 📊 REAL-TIME MUNICIPAL EMERGENCY RESPONSE ANALYTICS
@@ -3529,7 +3646,7 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
 
           {/* KPI Analytics Metric Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+          <div className="admin-analytics-grid-4">
             <div className="glass-panel" style={{ padding: '16px' }}>
               <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '800' }}>AVERAGE RESPONSE DURATION</div>
               <div className="mono-text" style={{ fontSize: '24px', fontWeight: '900', color: '#38bdf8', marginTop: '4px' }}>
@@ -3572,7 +3689,7 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
 
           {/* Breakdown Grids */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="admin-analytics-split">
             
             {/* Breakdown by Emergency Type */}
             <div className="glass-panel" style={{ padding: '18px' }}>
