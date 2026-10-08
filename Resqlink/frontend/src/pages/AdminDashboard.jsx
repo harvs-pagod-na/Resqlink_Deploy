@@ -4,7 +4,7 @@ import L from 'leaflet';
 import api from '../api';
 import { io } from 'socket.io-client';
 import { EmergencyBadges, CriticalBadge, CriticalWarningLogo, getIncidentEmergencies, RESCUE_DEPARTMENTS, mapEmergencyCategoriesToDepartments, EmergencyStatusTracker, EMERGENCY_STATUS_STEPS } from '../utils/emergencyHelper';
-import { getSocketUrl } from '../utils/urlHelper';
+import { getSocketUrl, getFileUrl } from '../utils/urlHelper';
 
 const SOCKET_URL = getSocketUrl();
 
@@ -888,6 +888,29 @@ export default function AdminDashboard({ user, onLogout }) {
   const [tab, setTab] = useState('incidents'); // incidents | map | users | fleet
   const [selected, setSelected] = useState(null);
   const [selectedUserDossier, setSelectedUserDossier] = useState(null);
+  const [dossierVerification, setDossierVerification] = useState(null);
+  const [dossierLoadingVerif, setDossierLoadingVerif] = useState(false);
+  const [enlargedImage, setEnlargedImage] = useState(null);
+
+  useEffect(() => {
+    if (selectedUserDossier) {
+      const initialVerif = selectedUserDossier.verification_requests?.[0] || null;
+      setDossierVerification(initialVerif);
+      setDossierLoadingVerif(true);
+      api.get(`/admin/users/${selectedUserDossier.id}/verification`)
+        .then((res) => {
+          if (res.data?.success && res.data.verification) {
+            setDossierVerification(res.data.verification);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setDossierLoadingVerif(false));
+    } else {
+      setDossierVerification(null);
+      setEnlargedImage(null);
+    }
+  }, [selectedUserDossier]);
+
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
@@ -1241,6 +1264,7 @@ export default function AdminDashboard({ user, onLogout }) {
         setUsers((prev) => prev.map((u) => (u.id === targetUser.id ? { ...u, is_verified: newStatus === 'approved', verification_status: newStatus } : u)));
         if (selectedUserDossier?.id === targetUser.id) {
           setSelectedUserDossier((prev) => ({ ...prev, is_verified: newStatus === 'approved', verification_status: newStatus }));
+          setDossierVerification((prev) => prev ? ({ ...prev, status: newStatus.toUpperCase() }) : prev);
         }
         showNotification(`User credentials: ${newStatus.toUpperCase()}`, 'success');
       }
@@ -3915,6 +3939,269 @@ export default function AdminDashboard({ user, onLogout }) {
                 </div>
               )}
 
+              {/* CITIZEN SUBMITTED GOVERNMENT ID & VERIFICATION DETAILS */}
+              {categorizeUser(selectedUserDossier) === 'citizens' && (
+                <div style={{
+                  marginTop: '10px',
+                  paddingTop: '10px',
+                  borderTop: '1px solid rgba(255,255,255,0.08)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '800', color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🛡️</span>
+                      <span>PHILIPPINE GOVERNMENT ID & VERIFICATION</span>
+                    </div>
+                    {dossierLoadingVerif && (
+                      <span style={{ fontSize: '10px', color: '#94a3b8' }}>Syncing...</span>
+                    )}
+                  </div>
+
+                  {dossierVerification ? (
+                    <div style={{
+                      background: 'rgba(0,0,0,0.3)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>ID TYPE:</span>
+                        <span style={{ fontWeight: '700', color: '#f8fafc' }}>{dossierVerification.id_type || 'PhilID (National ID)'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>ID NUMBER:</span>
+                        <span className="mono-text" style={{ color: '#38bdf8', fontWeight: '700' }}>
+                          {dossierVerification.extracted_id_num || 'N/A'}
+                        </span>
+                      </div>
+                      {dossierVerification.extracted_name && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>EXTRACTED NAME:</span>
+                          <span style={{ fontWeight: '700', color: '#f8fafc' }}>{dossierVerification.extracted_name}</span>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>SUBMITTED ON:</span>
+                        <span className="mono-text" style={{ fontSize: '11px', color: '#cbd5e1' }}>
+                          {new Date(dossierVerification.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>VERIFICATION STATUS:</span>
+                        <span style={{
+                          fontWeight: '800',
+                          fontSize: '11px',
+                          color: (dossierVerification.status === 'APPROVED' || selectedUserDossier.verification_status === 'approved')
+                            ? '#10b981'
+                            : (dossierVerification.status === 'REJECTED' || selectedUserDossier.verification_status === 'rejected' ? '#f43f5e' : '#38bdf8')
+                        }}>
+                          {(dossierVerification.status === 'APPROVED' || selectedUserDossier.verification_status === 'approved')
+                            ? '✓ APPROVED'
+                            : ((dossierVerification.status === 'REJECTED' || selectedUserDossier.verification_status === 'rejected') ? '✕ REJECTED' : '⏳ PENDING ADMIN REVIEW')}
+                        </span>
+                      </div>
+
+                      {dossierVerification.facial_match_score !== undefined && dossierVerification.facial_match_score !== null && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>AI FACIAL MATCH:</span>
+                          <span style={{ fontWeight: '800', color: dossierVerification.facial_match_score >= 80 ? '#10b981' : (dossierVerification.facial_match_score >= 50 ? '#f59e0b' : '#f43f5e') }}>
+                            {typeof dossierVerification.facial_match_score === 'number' ? `${dossierVerification.facial_match_score.toFixed(1)}%` : dossierVerification.facial_match_score}
+                            {dossierVerification.ai_recommendation && ` (${dossierVerification.ai_recommendation})`}
+                          </span>
+                        </div>
+                      )}
+
+                      {dossierVerification.admin_notes && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', background: 'rgba(255,255,255,0.02)', padding: '6px 8px', borderRadius: '4px' }}>
+                          <span style={{ color: '#64748b', fontSize: '10px' }}>ADMIN NOTES / REASON:</span>
+                          <span style={{ color: '#e2e8f0', fontSize: '11.5px' }}>{dossierVerification.admin_notes}</span>
+                        </div>
+                      )}
+
+                      {/* UPLOADED ID PHOTOS & LIVE SELFIE */}
+                      <div style={{ marginTop: '4px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginBottom: '6px' }}>
+                          SUBMITTED DOCUMENTS & BIOMETRIC SCAN (CLICK TO ENLARGE):
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                          {/* Front ID */}
+                          {dossierVerification.id_image_url ? (
+                            <div
+                              onClick={() => setEnlargedImage({ title: `Front ID - ${selectedUserDossier.email}`, src: getFileUrl(dossierVerification.id_image_url) })}
+                              style={{
+                                cursor: 'pointer',
+                                background: 'rgba(0,0,0,0.5)',
+                                border: '1px solid rgba(255,255,255,0.12)',
+                                borderRadius: '6px',
+                                padding: '4px',
+                                textAlign: 'center',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title="Click to view full photo"
+                            >
+                              <img
+                                src={getFileUrl(dossierVerification.id_image_url)}
+                                alt="Front ID"
+                                style={{ width: '100%', height: '65px', objectFit: 'cover', borderRadius: '4px' }}
+                              />
+                              <div style={{ fontSize: '9.5px', fontWeight: '800', color: '#38bdf8', marginTop: '4px' }}>
+                                ID FRONT 🔍
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {/* Back ID */}
+                          {dossierVerification.id_back_image ? (
+                            <div
+                              onClick={() => setEnlargedImage({ title: `Back ID - ${selectedUserDossier.email}`, src: getFileUrl(dossierVerification.id_back_image) })}
+                              style={{
+                                cursor: 'pointer',
+                                background: 'rgba(0,0,0,0.5)',
+                                border: '1px solid rgba(255,255,255,0.12)',
+                                borderRadius: '6px',
+                                padding: '4px',
+                                textAlign: 'center',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title="Click to view full photo"
+                            >
+                              <img
+                                src={getFileUrl(dossierVerification.id_back_image)}
+                                alt="Back ID"
+                                style={{ width: '100%', height: '65px', objectFit: 'cover', borderRadius: '4px' }}
+                              />
+                              <div style={{ fontSize: '9.5px', fontWeight: '800', color: '#38bdf8', marginTop: '4px' }}>
+                                ID BACK 🔍
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{
+                              background: 'rgba(0,0,0,0.2)',
+                              border: '1px dashed rgba(255,255,255,0.06)',
+                              borderRadius: '6px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '4px',
+                              color: '#64748b',
+                              fontSize: '9.5px'
+                            }}>
+                              No Back ID
+                            </div>
+                          )}
+
+                          {/* Live Selfie */}
+                          {dossierVerification.live_selfie_url || selectedUserDossier.profile?.avatar_url ? (
+                            <div
+                              onClick={() => setEnlargedImage({ title: `Live Selfie Scan - ${selectedUserDossier.email}`, src: getFileUrl(dossierVerification.live_selfie_url || selectedUserDossier.profile?.avatar_url) })}
+                              style={{
+                                cursor: 'pointer',
+                                background: 'rgba(0,0,0,0.5)',
+                                border: '1px solid rgba(255,255,255,0.12)',
+                                borderRadius: '6px',
+                                padding: '4px',
+                                textAlign: 'center',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title="Click to view full photo"
+                            >
+                              <img
+                                src={getFileUrl(dossierVerification.live_selfie_url || selectedUserDossier.profile?.avatar_url)}
+                                alt="Live Selfie"
+                                style={{ width: '100%', height: '65px', objectFit: 'cover', borderRadius: '4px' }}
+                              />
+                              <div style={{ fontSize: '9.5px', fontWeight: '800', color: '#10b981', marginTop: '4px' }}>
+                                SELFIE SCAN 🔍
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* QUICK ACTION BUTTONS INSIDE DOSSIER */}
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                        {selectedUserDossier.verification_status !== 'approved' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => toggleUserVerification(selectedUserDossier, 'approved')}
+                              style={{
+                                flex: 1,
+                                background: '#10b981',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '8px',
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              ✓ APPROVE ID
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleUserVerification(selectedUserDossier, 'rejected')}
+                              style={{
+                                flex: 1,
+                                background: 'rgba(244,63,94,0.15)',
+                                color: '#f43f5e',
+                                border: '1px solid #f43f5e',
+                                borderRadius: '6px',
+                                padding: '8px',
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              ✕ REJECT ID
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => toggleUserVerification(selectedUserDossier, 'unverified')}
+                            style={{
+                              flex: 1,
+                              background: 'rgba(245,158,11,0.15)',
+                              color: '#f59e0b',
+                              border: '1px solid #f59e0b',
+                              borderRadius: '6px',
+                              padding: '8px',
+                              fontSize: '11px',
+                              fontWeight: '800',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            REVOKE VERIFICATION / SET UNVERIFIED
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      padding: '12px',
+                      borderRadius: '8px',
+                      background: 'rgba(245, 158, 11, 0.05)',
+                      border: '1px dashed rgba(245, 158, 11, 0.25)',
+                      color: '#fef08a',
+                      fontSize: '11.5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <span>⚠️</span>
+                      <span>No official Philippine Government ID documents uploaded yet by this citizen.</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ADMIN & SUB-ADMIN SPECIFIC PRIVILEGES */}
               {(categorizeUser(selectedUserDossier) === 'admins' || categorizeUser(selectedUserDossier) === 'sub_admins') && (
                 <div style={{
@@ -3954,6 +4241,72 @@ export default function AdminDashboard({ user, onLogout }) {
             >
               CLOSE DOSSIER
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Enlarged Image Viewer */}
+      {enlargedImage && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.92)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            boxSizing: 'border-box',
+          }}
+          onClick={() => setEnlargedImage(null)}
+        >
+          <div
+            style={{
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '10px' }}>
+              <span style={{ color: '#f8fafc', fontWeight: '800', fontSize: '13px' }}>
+                {enlargedImage.title}
+              </span>
+              <button
+                type="button"
+                onClick={() => setEnlargedImage(null)}
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer',
+                  fontSize: '16px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <img
+              src={enlargedImage.src}
+              alt={enlargedImage.title}
+              style={{
+                maxWidth: '85vw',
+                maxHeight: '80vh',
+                objectFit: 'contain',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.2)',
+                boxShadow: '0 20px 50px rgba(0,0,0,0.9)'
+              }}
+            />
           </div>
         </div>
       )}

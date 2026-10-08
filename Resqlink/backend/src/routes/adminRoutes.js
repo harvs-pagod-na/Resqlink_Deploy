@@ -12,6 +12,7 @@ router.patch('/verification-queue/:id', adminController.reviewVerification);
 router.post('/verifications/:id/approve', adminController.approveVerification);
 
 router.get('/users', adminController.getAllUsers);
+router.get('/users/:id/verification', adminController.getUserVerification);
 router.patch('/users/:id/active', adminController.toggleUserActiveStatus);
 router.patch('/users/:id/verification', adminController.toggleUserVerificationStatus);
 

@@ -270,6 +270,7 @@ exports.getAllUsers = async (req, res) => {
       attributes: { exclude: ['password_hash', 'refresh_token'] },
       include: [
         { model: Profile, as: 'profile' },
+        { model: VerificationRequest, as: 'verification_requests' },
       ],
       order: [['createdAt', 'DESC']],
     });
@@ -282,6 +283,20 @@ exports.getAllUsers = async (req, res) => {
   } catch (error) {
     console.error('[GET ALL USERS ERROR]', error);
     return res.status(500).json({ success: false, message: 'Failed to fetch users list.' });
+  }
+};
+
+exports.getUserVerification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const request = await VerificationRequest.findOne({
+      where: { user_id: id },
+      order: [['createdAt', 'DESC']],
+    });
+    return res.json({ success: true, verification: request });
+  } catch (error) {
+    console.error('[GET USER VERIFICATION ERROR]', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch user verification.' });
   }
 };
 
