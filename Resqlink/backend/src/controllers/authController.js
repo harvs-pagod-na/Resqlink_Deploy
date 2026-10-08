@@ -79,10 +79,10 @@ exports.register = async (req, res) => {
       isVerified = true;
       verificationStatus = 'approved';
     } else {
-      // Regular Citizens: Instant Auto-Approval for immediate emergency SOS access
+      // Regular Citizens: Instant registration for immediate emergency SOS access, pending identity verification
       userRole = 'citizen';
-      isVerified = true;
-      verificationStatus = 'approved';
+      isVerified = false;
+      verificationStatus = 'unverified';
     }
 
     const password_hash = await bcrypt.hash(password, 10);
@@ -95,6 +95,9 @@ exports.register = async (req, res) => {
       is_verified: isVerified,
       verification_status: verificationStatus,
     });
+
+    const tokens = generateTokens(user);
+    await user.update({ refresh_token: tokens.refreshToken });
 
     const resume_url = resumeFile ? `/uploads/${resumeFile.filename}` : null;
 
@@ -126,6 +129,7 @@ exports.register = async (req, res) => {
       message: isResponder
         ? 'Responder application submitted! Your account is pending verification by the MDRRMO Admin.'
         : 'Citizen account registered successfully! Emergency SOS is active.',
+      tokens,
       user: {
         id: user.id,
         uuid: user.uuid,

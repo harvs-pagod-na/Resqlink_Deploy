@@ -87,7 +87,7 @@ function MapFly({ lat, lng }) {
   return null;
 }
 
-export default function UserHome({ user, onLogout }) {
+export default function UserHome({ user, onLogout, onUserUpdate, justRegistered }) {
   const [activeRequest, setActiveRequest] = useState(null);
   const [myRequests, setMyRequests] = useState([]);
   const [tab, setTab] = useState('home'); // home | alerts | medical | tracking | history
@@ -109,6 +109,198 @@ export default function UserHome({ user, onLogout }) {
     photo_url: '',
     contact_number: user?.phone_number || '',
   });
+
+  // Verification state sourced from session & verification API
+  const [verificationStatus, setVerificationStatus] = useState(user?.verification_status || 'unverified');
+  const [isVerified, setIsVerified] = useState(Boolean(user?.is_verified || user?.verification_status === 'approved'));
+  const [latestRequest, setLatestRequest] = useState(null);
+  const [loadingVerification, setLoadingVerification] = useState(false);
+  const [showVerificationBanner, setShowVerificationBanner] = useState(true);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+
+  // Upload modal form states
+  const [verifyIdType, setVerifyIdType] = useState('PhilID (National ID)');
+  const [verifyIdNumber, setVerifyIdNumber] = useState('');
+  const [idFrontFile, setIdFrontFile] = useState(null);
+  const [idBackFile, setIdBackFile] = useState(null);
+  const [selfieFile, setSelfieFile] = useState(null);
+  const [previewFront, setPreviewFront] = useState(null);
+  const [previewBack, setPreviewBack] = useState(null);
+  const [previewSelfie, setPreviewSelfie] = useState(null);
+  const [submittingVerification, setSubmittingVerification] = useState(false);
+  const [verificationError, setVerificationError] = useState('');
+  const [verificationSuccessMsg, setVerificationSuccessMsg] = useState('');
+
+  const fetchVerificationStatus = async () => {
+    try {
+      setLoadingVerification(true);
+      const res = await api.get('/verification/status');
+      if (res.data?.success) {
+        const vStatus = res.data.verification_status || 'unverified';
+        const vBool = Boolean(res.data.is_verified || vStatus === 'approved');
+        setVerificationStatus(vStatus);
+        setIsVerified(vBool);
+        setLatestRequest(res.data.latest_request || null);
+        if (onUserUpdate) {
+          onUserUpdate({
+            ...user,
+            is_verified: vBool,
+            verification_status: vStatus,
+          });
+        }
+      }
+    } catch {
+      try {
+        const meRes = await api.get('/auth/me');
+        if (meRes.data?.success && meRes.data.user) {
+          const u = meRes.data.user;
+          const vStatus = u.verification_status || 'unverified';
+          const vBool = Boolean(u.is_verified || vStatus === 'approved');
+          setVerificationStatus(vStatus);
+          setIsVerified(vBool);
+          if (onUserUpdate) {
+            onUserUpdate(u);
+          }
+        }
+      } catch {}
+    } finally {
+      setLoadingVerification(false);
+    }
+  };
+
+  const validateImageFile = (file, label) => {
+    if (!file) return `${label} is required.`;
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      return `${label} must be a valid JPEG or PNG image.`;
+    }
+    const maxBytes = 5 * 1024 * 1024; // 5 MB
+    if (file.size > maxBytes) {
+      return `${label} exceeds the 5 MB maximum limit (${(file.size / (1024 * 1024)).toFixed(2)} MB). Recommended size: 2 to 5 MB.`;
+    }
+    return null;
+  };
+
+  const handleFrontFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const err = validateImageFile(file, 'Front ID');
+      if (err) {
+        setVerificationError(err);
+        return;
+      }
+      setVerificationError('');
+      setIdFrontFile(file);
+      setPreviewFront(URL.createObjectURL(file));
+    }
+  };
+
+  const handleBackFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const err = validateImageFile(file, 'Back ID');
+      if (err) {
+        setVerificationError(err);
+        return;
+      }
+      setVerificationError('');
+      setIdBackFile(file);
+      setPreviewBack(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSelfieFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const err = validateImageFile(file, 'Live Selfie');
+      if (err) {
+        setVerificationError(err);
+        return;
+      }
+      setVerificationError('');
+      setSelfieFile(file);
+      setPreviewSelfie(URL.createObjectURL(file));
+    }
+  };
+
+  const handleVerificationSubmit = async (e) => {
+    if (e) e.preventDefault();
+    setVerificationError('');
+    setVerificationSuccessMsg('');
+
+    const frontErr = validateImageFile(idFrontFile, 'Front ID Document');
+    if (frontErr) {
+      setVerificationError(frontErr);
+      return;
+    }
+
+    if (idBackFile) {
+      const backErr = validateImageFile(idBackFile, 'Back ID Document');
+      if (backErr) {
+        setVerificationError(backErr);
+        return;
+      }
+    }
+
+    const selfieErr = validateImageFile(selfieFile, 'Live Selfie Scan');
+    if (selfieErr) {
+      setVerificationError(selfieErr);
+      return;
+    }
+
+    if (!verifyIdType) {
+      setVerificationError('Please select your ID type.');
+      return;
+    }
+
+    setSubmittingVerification(true);
+    try {
+      const formData = new FormData();
+      formData.append('id_type', verifyIdType);
+      if (verifyIdNumber) formData.append('id_number', verifyIdNumber.trim());
+      formData.append('id_front', idFrontFile);
+      if (idBackFile) formData.append('id_back', idBackFile);
+      formData.append('selfie', selfieFile);
+
+      const res = await api.post('/verification/submit', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
+      });
+
+      if (res.data?.success) {
+        // Guard: Treat submission as pending review, never silently approved
+        setVerificationStatus('pending_admin');
+        setIsVerified(false);
+        setVerificationSuccessMsg(
+          'Identity verification submitted successfully! Your submission is PENDING SUPER ADMIN REVIEW. Your account is not silently approved. Your Emergency SOS button remains active.'
+        );
+        showNotification('🛡️ Verification submitted for Super Admin review!', 'success');
+        await fetchVerificationStatus();
+        setTimeout(() => {
+          setShowVerificationModal(false);
+          setShowVerificationBanner(true);
+        }, 2200);
+      } else {
+        setVerificationError(res.data?.message || 'Verification submission failed.');
+      }
+    } catch (err) {
+      setVerificationError(err.response?.data?.message || err.message || 'Error uploading verification documents. Please try again.');
+    } finally {
+      setSubmittingVerification(false);
+    }
+  };
+
+  const openResubmitModal = () => {
+    setVerificationError('');
+    setVerificationSuccessMsg('');
+    setIdFrontFile(null);
+    setIdBackFile(null);
+    setSelfieFile(null);
+    setPreviewFront(null);
+    setPreviewBack(null);
+    setPreviewSelfie(null);
+    setShowVerificationModal(true);
+  };
 
   const selectedEmergencyTypes = Array.isArray(sosForm.emergency_types) && sosForm.emergency_types.length > 0
     ? sosForm.emergency_types
@@ -183,8 +375,6 @@ export default function UserHome({ user, onLogout }) {
   });
   const [savingMedical, setSavingMedical] = useState(false);
 
-  const isVerified = user?.is_verified || user?.verification_status === 'approved';
-
   const saveMedicalProfile = async (e) => {
     if (e) e.preventDefault();
     setSavingMedical(true);
@@ -209,6 +399,7 @@ export default function UserHome({ user, onLogout }) {
   };
 
   useEffect(() => {
+    fetchVerificationStatus();
     loadMyRequests();
     loadAlerts();
     initSocket();
@@ -929,15 +1120,34 @@ export default function UserHome({ user, onLogout }) {
             </span>
           </div>
 
-          <span style={{
-            fontSize: '10px', fontWeight: '800', padding: '4px 7px', borderRadius: '4px',
-            background: isVerified ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
-            color: isVerified ? '#10b981' : '#f59e0b',
-            border: `1px solid ${isVerified ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`,
-            whiteSpace: 'nowrap'
-          }}>
-            {isVerified ? 'VERIFIED 🛡️' : 'CITIZEN ⚠️'}
-          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (!isVerified) {
+                openResubmitModal();
+              }
+            }}
+            style={{
+              fontSize: '10px', fontWeight: '800', padding: '4px 8px', borderRadius: '4px',
+              background: isVerified
+                ? 'rgba(16,185,129,0.15)'
+                : (verificationStatus === 'pending_admin' ? 'rgba(56,189,248,0.15)' : (verificationStatus === 'rejected' ? 'rgba(244,63,94,0.15)' : 'rgba(245,158,11,0.15)')),
+              color: isVerified
+                ? '#10b981'
+                : (verificationStatus === 'pending_admin' ? '#38bdf8' : (verificationStatus === 'rejected' ? '#f43f5e' : '#f59e0b')),
+              border: `1px solid ${isVerified ? 'rgba(16,185,129,0.3)' : (verificationStatus === 'pending_admin' ? 'rgba(56,189,248,0.3)' : (verificationStatus === 'rejected' ? 'rgba(244,63,94,0.3)' : 'rgba(245,158,11,0.3)'))}`,
+              whiteSpace: 'nowrap',
+              cursor: isVerified ? 'default' : 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '4px'
+            }}
+            title={isVerified ? 'Verified Citizen Account' : 'Click to complete or review identity verification'}
+          >
+            {isVerified
+              ? 'VERIFIED 🛡️'
+              : (verificationStatus === 'pending_admin'
+                ? 'PENDING REVIEW ⏳'
+                : (verificationStatus === 'rejected' ? 'ACTION NEEDED ❌' : 'VERIFY ID ⚠️'))}
+          </button>
 
           <button onClick={onLogout} style={{
             background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: '#94a3b8',
@@ -985,6 +1195,139 @@ export default function UserHome({ user, onLogout }) {
 
       {/* MAIN CONTAINER */}
       <div className="resq-main-container">
+
+        {/* CITIZEN VERIFICATION PROMPT BANNER (Dismissible, never blocks SOS) */}
+        {!isVerified && showVerificationBanner && (
+          <div style={{
+            marginBottom: '14px',
+            padding: '14px 16px',
+            borderRadius: '10px',
+            background: verificationStatus === 'pending_admin'
+              ? 'rgba(14, 165, 233, 0.08)'
+              : (verificationStatus === 'rejected' ? 'rgba(244, 63, 94, 0.1)' : 'rgba(245, 158, 11, 0.08)'),
+            border: `1px solid ${verificationStatus === 'pending_admin' ? 'rgba(56, 189, 248, 0.3)' : (verificationStatus === 'rejected' ? 'rgba(244, 63, 94, 0.35)' : 'rgba(245, 158, 11, 0.35)')}`,
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: '12px',
+            position: 'relative',
+            backdropFilter: 'blur(8px)',
+          }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', flex: 1 }}>
+              <div style={{
+                fontSize: '22px',
+                lineHeight: 1,
+                padding: '6px',
+                borderRadius: '8px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.06)'
+              }}>
+                {verificationStatus === 'pending_admin' ? '⏳' : (verificationStatus === 'rejected' ? '❌' : '🛡️')}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  letterSpacing: '0.4px',
+                  color: verificationStatus === 'pending_admin' ? '#38bdf8' : (verificationStatus === 'rejected' ? '#f43f5e' : '#fbbf24')
+                }}>
+                  {verificationStatus === 'pending_admin'
+                    ? 'IDENTITY VERIFICATION SUBMISSION PENDING REVIEW'
+                    : (verificationStatus === 'rejected'
+                      ? 'VERIFICATION REQUIRES ATTENTION / RESUBMISSION'
+                      : (justRegistered ? 'WELCOME TO RESQLINK! CITIZEN VERIFICATION RECOMMENDED' : 'OFFICIAL PHILIPPINE CITIZEN VERIFICATION REQUIRED'))}
+                </div>
+
+                <div style={{ fontSize: '12px', color: '#cbd5e1', marginTop: '4px', lineHeight: 1.45 }}>
+                  {verificationStatus === 'pending_admin' ? (
+                    <>Your government ID and live selfie scan were successfully received and are currently queued for Super Admin review. <strong>Emergency SOS remains 100% active and dispatchable at all times.</strong></>
+                  ) : verificationStatus === 'rejected' ? (
+                    <>
+                      Your previous verification was rejected. Reason: <span style={{ color: '#fca5a5', fontWeight: '700' }}>{latestRequest?.admin_notes || 'ID image was unclear or live face scan did not match.'}</span>. Please review the issue and submit clear documents.
+                    </>
+                  ) : (
+                    <>Submit your Philippine Government ID and live face selfie to complete identity verification. Verified citizens receive enhanced responder telemetry and priority dispatch. <strong>Emergency SOS works right now and will never be blocked.</strong></>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {verificationStatus !== 'pending_admin' ? (
+                    <button
+                      type="button"
+                      onClick={openResubmitModal}
+                      style={{
+                        background: verificationStatus === 'rejected' ? '#f43f5e' : '#f59e0b',
+                        color: '#000000',
+                        border: 'none',
+                        fontWeight: '800',
+                        fontSize: '11px',
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        letterSpacing: '0.3px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <span>{verificationStatus === 'rejected' ? 'Resubmit ID Documents' : 'Verify Identity Now'}</span>
+                      <span>➔</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowVerificationModal(true)}
+                      style={{
+                        background: 'rgba(56, 189, 248, 0.15)',
+                        color: '#38bdf8',
+                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                        fontWeight: '800',
+                        fontSize: '11px',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      View Submission Details 📋
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowVerificationBanner(false)}
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      color: '#94a3b8',
+                      fontSize: '11px',
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Dismiss For Now (SOS Active)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowVerificationBanner(false)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#64748b',
+                fontSize: '16px',
+                cursor: 'pointer',
+                padding: '0 4px',
+                lineHeight: 1
+              }}
+              title="Dismiss banner"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* TAB 1: EMERGENCY SOS FORM */}
         {tab === 'home' && (
@@ -1754,6 +2097,349 @@ export default function UserHome({ user, onLogout }) {
           maxWidth: '480px', margin: '0 auto', textAlign: 'center'
         }}>
           {notification.msg}
+        </div>
+      )}
+
+      {/* VERIFICATION UPLOAD MODAL */}
+      {showVerificationModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(3, 7, 18, 0.85)',
+            backdropFilter: 'blur(12px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            boxSizing: 'border-box',
+            overflowY: 'auto',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowVerificationModal(false);
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '560px',
+              background: '#0d1322',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '14px',
+              padding: '24px',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.8)',
+              boxSizing: 'border-box',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                paddingBottom: '14px',
+                marginBottom: '16px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>🛡️</span>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: '900', color: '#f8fafc', letterSpacing: '0.5px' }}>
+                    CITIZEN IDENTITY VERIFICATION
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    Official Philippine ID & Live Biometric Face Scan
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVerificationModal(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: '#94a3b8',
+                  borderRadius: '6px',
+                  width: '28px',
+                  height: '28px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                }}
+                title="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* If pending review without any active submission error, display current submission status */}
+            {verificationStatus === 'pending_admin' && !verificationError && !verificationSuccessMsg ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div
+                  style={{
+                    padding: '16px',
+                    borderRadius: '10px',
+                    background: 'rgba(56, 189, 248, 0.08)',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                    color: '#e2e8f0',
+                    fontSize: '12.5px',
+                    lineHeight: '1.5',
+                  }}
+                >
+                  <div style={{ fontWeight: '800', color: '#38bdf8', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>⏳</span>
+                    <span>SUBMISSION UNDER SUPER ADMIN REVIEW</span>
+                  </div>
+                  <p style={{ margin: 0 }}>
+                    Your Philippine Government ID documents and live face scan are in the verification queue.
+                    The Super Admin reviews every submission manually. <strong>Accounts are never silently or automatically approved.</strong>
+                  </p>
+                  {latestRequest && (
+                    <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', fontSize: '11.5px', color: '#94a3b8' }}>
+                      <div><strong>ID Type:</strong> {latestRequest.id_type || 'Philippine ID'}</div>
+                      <div><strong>Status:</strong> <span style={{ color: '#38bdf8', fontWeight: '800' }}>{latestRequest.status || 'PENDING_ADMIN_APPROVAL'}</span></div>
+                      <div><strong>Submitted:</strong> {new Date(latestRequest.createdAt).toLocaleString()}</div>
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '8px',
+                    background: 'rgba(244,63,94,0.08)',
+                    border: '1px solid rgba(244,63,94,0.2)',
+                    fontSize: '11.5px',
+                    color: '#fca5a5',
+                  }}
+                >
+                  🚨 <strong>Emergency SOS remains active:</strong> You can dismiss this modal and send emergency dispatch requests at any time.
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowVerificationModal(false)}
+                    className="tactical-btn"
+                    style={{ background: '#38bdf8', color: '#000000', fontWeight: '800', padding: '10px 18px', fontSize: '12px' }}
+                  >
+                    Close (Back to SOS)
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Verification Upload Form */
+              <form onSubmit={handleVerificationSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {/* Notice banner */}
+                <div
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    background: 'rgba(245, 158, 11, 0.08)',
+                    border: '1px solid rgba(245, 158, 11, 0.25)',
+                    fontSize: '11px',
+                    color: '#fef08a',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  ℹ️ <strong>Pending Review Policy:</strong> All submissions are queued for Super Admin review and are never silently approved. Accepted files: <strong>JPEG / PNG only, 2 MB to 5 MB</strong>. Emergency SOS is never blocked.
+                </div>
+
+                {verificationError && (
+                  <div
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      background: 'rgba(244,63,94,0.12)',
+                      border: '1px solid #f43f5e',
+                      color: '#f43f5e',
+                      fontSize: '11.5px',
+                      fontWeight: '700',
+                    }}
+                  >
+                    {verificationError}
+                  </div>
+                )}
+
+                {verificationSuccessMsg && (
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '8px',
+                      background: 'rgba(16,185,129,0.15)',
+                      border: '1px solid #10b981',
+                      color: '#10b981',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                    }}
+                  >
+                    {verificationSuccessMsg}
+                  </div>
+                )}
+
+                {/* Field 1: ID Type & Number */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label className="form-label" style={{ display: 'block', marginBottom: '4px' }}>
+                      1. ID DOCUMENT TYPE *
+                    </label>
+                    <select
+                      value={verifyIdType}
+                      onChange={(e) => setVerifyIdType(e.target.value)}
+                      className="tactical-input"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <option value="PhilID (National ID)">PhilID (Philippine National ID)</option>
+                      <option value="Driver's License">LTO Driver's License</option>
+                      <option value="Passport">Philippine Passport</option>
+                      <option value="UMID">UMID (Unified Multi-Purpose ID)</option>
+                      <option value="Postal ID">PhilPost Postal ID</option>
+                      <option value="Voter ID">COMELEC Voter's ID</option>
+                      <option value="PRC ID">PRC License ID</option>
+                      <option value="Senior Citizen / PWD">Senior Citizen / PWD ID</option>
+                      <option value="Barangay Clearance ID">Barangay ID with Photo</option>
+                      <option value="Other Valid Govt ID">Other Valid Govt ID</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ display: 'block', marginBottom: '4px' }}>
+                      ID NUMBER (OPTIONAL)
+                    </label>
+                    <input
+                      type="text"
+                      value={verifyIdNumber}
+                      onChange={(e) => setVerifyIdNumber(e.target.value)}
+                      placeholder="e.g. 1234-5678-9012"
+                      className="tactical-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Field 2: Front ID Upload */}
+                <div style={{ padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label className="form-label" style={{ margin: 0 }}>
+                      2. FRONT ID PHOTO * (JPEG/PNG, 2-5 MB)
+                    </label>
+                    {idFrontFile && (
+                      <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '800' }}>
+                        {(idFrontFile.size / (1024 * 1024)).toFixed(2)} MB ✓
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png"
+                    onChange={handleFrontFileChange}
+                    style={{ fontSize: '11px', color: '#94a3b8', width: '100%' }}
+                  />
+                  {previewFront && (
+                    <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <img src={previewFront} alt="ID Front Preview" style={{ width: '80px', height: '50px', objectFit: 'cover', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)' }} />
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>Front photo loaded</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Field 3: Back ID Upload (Optional) */}
+                <div style={{ padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label className="form-label" style={{ margin: 0 }}>
+                      3. BACK ID PHOTO (OPTIONAL)
+                    </label>
+                    {idBackFile && (
+                      <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '800' }}>
+                        {(idBackFile.size / (1024 * 1024)).toFixed(2)} MB ✓
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png"
+                    onChange={handleBackFileChange}
+                    style={{ fontSize: '11px', color: '#94a3b8', width: '100%' }}
+                  />
+                  {previewBack && (
+                    <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <img src={previewBack} alt="ID Back Preview" style={{ width: '80px', height: '50px', objectFit: 'cover', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)' }} />
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>Back photo loaded</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Field 4: Live Selfie Scan */}
+                <div style={{ padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label className="form-label" style={{ margin: 0 }}>
+                      4. LIVE SELFIE SCAN * (JPEG/PNG, 2-5 MB)
+                    </label>
+                    {selfieFile && (
+                      <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '800' }}>
+                        {(selfieFile.size / (1024 * 1024)).toFixed(2)} MB ✓
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png"
+                    capture="user"
+                    onChange={handleSelfieFileChange}
+                    style={{ fontSize: '11px', color: '#94a3b8', width: '100%' }}
+                  />
+                  <div style={{ fontSize: '10px', color: '#64748b', marginTop: '3px' }}>
+                    Take a clear, well-lit photo of your face directly facing the camera.
+                  </div>
+                  {previewSelfie && (
+                    <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <img src={previewSelfie} alt="Selfie Preview" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '50%', border: '1.5px solid #10b981' }} />
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>Selfie photo loaded</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Buttons */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowVerificationModal(false)}
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#94a3b8',
+                      fontWeight: '700',
+                      fontSize: '12px',
+                      padding: '10px 16px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel / Return to SOS
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={submittingVerification || !idFrontFile || !selfieFile}
+                    className="tactical-btn"
+                    style={{
+                      background: '#10b981',
+                      color: '#ffffff',
+                      fontWeight: '800',
+                      padding: '10px 22px',
+                      fontSize: '12.5px',
+                    }}
+                  >
+                    {submittingVerification ? 'Uploading & Queuing Review...' : 'Submit Verification 🛡️'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       )}
 

@@ -88,6 +88,31 @@ export default function AuthPage({ onLoginSuccess }) {
         responder_unit: form.responder_unit,
       });
       if (res.data.success) {
+        const token = res.data.tokens?.accessToken;
+        if (token && res.data.user) {
+          localStorage.setItem('resqlink_token', token);
+          onLoginSuccess(res.data.user, token, { justRegistered: true });
+          return;
+        }
+
+        // Auto-login fallback
+        try {
+          const loginRes = await api.post('/auth/login', {
+            email: form.email,
+            password: form.password,
+          });
+          if (loginRes.data?.success) {
+            const loginToken = loginRes.data.tokens?.accessToken;
+            if (loginToken) {
+              localStorage.setItem('resqlink_token', loginToken);
+            }
+            onLoginSuccess(loginRes.data.user, loginToken, { justRegistered: true });
+            return;
+          }
+        } catch {
+          // Fall back to showing login screen
+        }
+
         setSuccess(res.data.message || 'Account created successfully! Please log in.');
         setMode('login');
         setForm(f => ({ ...f, password: '', confirm_password: '' }));

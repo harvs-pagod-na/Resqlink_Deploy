@@ -11,6 +11,7 @@ const RESQLINK_TOKEN_KEY = 'resqlink_token';
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [justRegistered, setJustRegistered] = useState(false);
 
   useEffect(() => {
     checkCurrentUser();
@@ -32,11 +33,14 @@ export default function App() {
     }
   };
 
-  const handleLoginSuccess = (userData, token) => {
+  const handleLoginSuccess = (userData, token, options = {}) => {
     if (token) {
       localStorage.setItem(RESQLINK_TOKEN_KEY, token);
     }
     setUser(userData);
+    if (options?.justRegistered) {
+      setJustRegistered(true);
+    }
   };
 
   const handleLogout = () => {
@@ -93,6 +97,13 @@ export default function App() {
     return <ResponderPortal user={user} onLogout={handleLogout} />;
   }
 
-  return <UserHome user={user} onLogout={handleLogout} />;
+  return (
+    <UserHome
+      user={user}
+      onLogout={handleLogout}
+      onUserUpdate={(updatedUser) => setUser(updatedUser)}
+      justRegistered={justRegistered}
+    />
+  );
 }
 
