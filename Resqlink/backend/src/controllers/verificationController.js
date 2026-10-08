@@ -75,6 +75,26 @@ exports.submitVerification = async (req, res) => {
       console.error('[NOTIFICATION CREATE ERROR]', nErr);
     }
 
+    // Broadcast verification submission to Admin & Sub-Admin panels
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('verification_submitted', {
+          userId: req.user.id,
+          verificationId: request.id,
+          verification: request,
+          verification_status: 'pending_admin',
+        });
+        io.emit('user_updated', {
+          id: req.user.id,
+          is_verified: false,
+          verification_status: 'pending_admin',
+        });
+      }
+    } catch (sockErr) {
+      console.warn('[VERIFICATION SOCKET WARN]', sockErr.message);
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Identity verification submitted successfully! AI analysis complete. Pending final Admin verification.',
@@ -301,6 +321,26 @@ exports.submitCompleteOnboarding = async (req, res) => {
       status: request.status,
       live_selfie_url: request.live_selfie_url,
     };
+
+    // Broadcast verification submission to Admin & Sub-Admin panels
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('verification_submitted', {
+          userId: req.user.id,
+          verificationId: request.id,
+          verification: standardizedPayload,
+          verification_status: 'pending_admin',
+        });
+        io.emit('user_updated', {
+          id: req.user.id,
+          is_verified: false,
+          verification_status: 'pending_admin',
+        });
+      }
+    } catch (sockErr) {
+      console.warn('[VERIFICATION ONBOARDING SOCKET WARN]', sockErr.message);
+    }
 
     return res.status(200).json({
       success: true,

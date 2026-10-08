@@ -1205,6 +1205,44 @@ export default function AdminDashboard({ user, onLogout }) {
     sock.on('alert:broadcast', (newAlert) => {
       setAlertsList((prev) => [newAlert, ...prev.filter((a) => a.id !== newAlert.id)]);
     });
+
+    sock.on('new_user_registered', (newUser) => {
+      setUsers((prev) => {
+        const exists = prev.some((u) => u.id === newUser.id);
+        if (exists) return prev.map((u) => (u.id === newUser.id ? { ...u, ...newUser } : u));
+        return [newUser, ...prev];
+      });
+      const name = `${newUser.first_name || ''} ${newUser.last_name || ''}`.trim() || newUser.email || 'Citizen';
+      const town = detectMunicipality(newUser);
+      showNotification(`👤 New Citizen Registered: ${name} (${town}) — Status: UNVERIFIED`, 'info');
+      loadUsers();
+    });
+
+    sock.on('user_registered', (newUser) => {
+      setUsers((prev) => {
+        const exists = prev.some((u) => u.id === newUser.id);
+        if (exists) return prev.map((u) => (u.id === newUser.id ? { ...u, ...newUser } : u));
+        return [newUser, ...prev];
+      });
+      loadUsers();
+    });
+
+    sock.on('user_updated', (updatedUser) => {
+      setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? { ...u, ...updatedUser } : u)));
+      if (selectedUserDossier?.id === updatedUser.id) {
+        setSelectedUserDossier((prev) => ({ ...prev, ...updatedUser }));
+      }
+      loadUsers();
+    });
+
+    sock.on('verification_submitted', (data) => {
+      showNotification(`📄 ID Verification Submitted by User #${data.userId}! Ready for review.`, 'info');
+      loadUsers();
+    });
+
+    sock.on('verification_updated', () => {
+      loadUsers();
+    });
   };
 
   const showNotification = (msg, type = 'info') => {

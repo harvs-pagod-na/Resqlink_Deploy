@@ -124,6 +124,37 @@ exports.register = async (req, res) => {
       verification_status: verificationStatus,
     });
 
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        const fullUserPayload = {
+          id: user.id,
+          uuid: user.uuid,
+          email: user.email,
+          role: user.role,
+          phone_number: user.phone_number,
+          is_verified: user.is_verified,
+          verification_status: user.verification_status,
+          is_active: user.is_active !== undefined ? user.is_active : true,
+          first_name,
+          last_name,
+          city: chosenTown,
+          municipality: chosenTown,
+          barangay: barangay || '',
+          profile: profile ? profile.toJSON() : null,
+          Profile: profile ? profile.toJSON() : null,
+          verification_requests: [],
+          created_at: user.created_at || new Date().toISOString(),
+          createdAt: user.createdAt || new Date().toISOString(),
+        };
+        io.emit('new_user_registered', fullUserPayload);
+        io.emit('user_registered', fullUserPayload);
+        io.emit('user_updated', fullUserPayload);
+      }
+    } catch (sockErr) {
+      console.warn('[AUTH SOCKET WARN]', sockErr.message);
+    }
+
     return res.status(201).json({
       success: true,
       message: isResponder

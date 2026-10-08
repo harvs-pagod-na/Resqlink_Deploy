@@ -4,7 +4,7 @@ const adminController = require('../controllers/adminController');
 const authenticate = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
 
-router.use(authenticate, requireRole('super_admin', 'admin'));
+router.use(authenticate, requireRole('super_admin', 'admin', 'sub_admin'));
 
 router.get('/dashboard-stats', adminController.getDashboardStats);
 router.get('/verification-queue', adminController.getVerificationQueue);
@@ -18,7 +18,7 @@ router.patch('/users/:id/verification', adminController.toggleUserVerificationSt
 
 router.get('/audit-logs', adminController.getAuditLogs);
 
-router.post('/trigger-backup', adminController.triggerBackup);
+router.post('/trigger-backup', requireRole('super_admin', 'admin'), adminController.triggerBackup);
 
 // Admin Broadcast Notification Management
 router.post('/notifications/broadcast', adminController.sendBroadcastNotification);

@@ -155,6 +155,26 @@ exports.reviewVerification = async (req, res) => {
       live_selfie_url: request.live_selfie_url,
     };
 
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('verification_updated', {
+          userId: request.user_id,
+          verificationId: request.id,
+          status: request.status,
+          is_verified: request.status === 'APPROVED',
+          verification_status: request.status === 'APPROVED' ? 'approved' : 'rejected',
+        });
+        io.emit('user_updated', {
+          id: request.user_id,
+          is_verified: request.status === 'APPROVED',
+          verification_status: request.status === 'APPROVED' ? 'approved' : 'rejected',
+        });
+      }
+    } catch (sockErr) {
+      console.warn('[ADMIN SOCKET WARN]', sockErr.message);
+    }
+
     return res.json({
       success: true,
       message: `Verification request ${admin_status} successfully.`,
@@ -208,6 +228,26 @@ exports.approveVerification = async (req, res) => {
       entity_id: String(id),
       details: { target_user_id: request.user_id, status: 'verified', admin_notes },
     });
+
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('verification_updated', {
+          userId: request.user_id,
+          verificationId: request.id,
+          status: 'APPROVED',
+          is_verified: true,
+          verification_status: 'approved',
+        });
+        io.emit('user_updated', {
+          id: request.user_id,
+          is_verified: true,
+          verification_status: 'approved',
+        });
+      }
+    } catch (sockErr) {
+      console.warn('[ADMIN SOCKET WARN]', sockErr.message);
+    }
 
     return res.json({
       success: true,
@@ -343,6 +383,24 @@ exports.toggleUserVerificationStatus = async (req, res) => {
         is_verified: verifiedBool,
         verification_status: statusStr,
       });
+    }
+
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('verification_updated', {
+          userId: user.id,
+          is_verified: verifiedBool,
+          verification_status: statusStr,
+        });
+        io.emit('user_updated', {
+          id: user.id,
+          is_verified: verifiedBool,
+          verification_status: statusStr,
+        });
+      }
+    } catch (sockErr) {
+      console.warn('[ADMIN SOCKET WARN]', sockErr.message);
     }
 
     return res.json({

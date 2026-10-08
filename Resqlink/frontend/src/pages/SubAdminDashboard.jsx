@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import api from '../api';
 import { io } from 'socket.io-client';
 import { RESQLINK_TOWN_CENTERS } from '../data/PampangaData';
 import { EmergencyBadges, CriticalBadge, CriticalWarningLogo, getIncidentEmergencies, EmergencyStatusTracker, EMERGENCY_STATUS_STEPS, RESCUE_DEPARTMENTS, mapEmergencyCategoriesToDepartments } from '../utils/emergencyHelper';
-import { getSocketUrl } from '../utils/urlHelper';
+import { getSocketUrl, getFileUrl } from '../utils/urlHelper';
 
 const SOCKET_URL = getSocketUrl();
 
@@ -85,6 +85,16 @@ export default function SubAdminDashboard({ user, onLogout }) {
   const [updatingId, setUpdatingId] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [activeTab, setActiveTab] = useState('queue'); // queue | radar | chat
+  const [navTab, setNavTab] = useState('dispatch'); // 'dispatch' | 'citizens'
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [citizenKycFilter, setCitizenKycFilter] = useState('all'); // 'all' | 'verified' | 'unverified' | 'pending'
+  const [selectedCitizenDossier, setSelectedCitizenDossier] = useState(null);
+  const [dossierVerification, setDossierVerification] = useState(null);
+  const [loadingDossier, setLoadingDossier] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState(null);
+  const [verifyingUser, setVerifyingUser] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date().toUTCString().slice(17, 25));
@@ -135,6 +145,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
 
   useEffect(() => {
     loadRequests();
+    loadUsers();
     initSocket();
     startGpsTracking();
     return () => {
@@ -283,12 +294,138 @@ export default function SubAdminDashboard({ user, onLogout }) {
     sock.on('webrtc_call_ended', () => {
       endVoiceCall();
     });
+
+    sock.on('new_user_registered', (newUser) => {
+      setUsers((prev) => {
+        const exists = prev.some((u) => u.id === newUser.id);
+        if (exists) return prev.map((u) => (u.id === newUser.id ? { ...u, ...newUser } : u));
+        return [newUser, ...prev];
+      });
+      const name = `${newUser.first_name || ''} ${newUser.last_name || ''}`.trim() || newUser.email || 'Citizen';
+      const town = newUser.municipality || newUser.city || (newUser.profile && newUser.profile.city) || 'Your Sector';
+      showNotification(`👤 New Citizen Registered: ${name} (${town}) — Status: UNVERIFIED`, 'info');
+      loadUsers();
+    });
+
+    sock.on('user_registered', (newUser) => {
+      setUsers((prev) => {
+        const exists = prev.some((u) => u.id === newUser.id);
+        if (exists) return prev.map((u) => (u.id === newUser.id ? { ...u, ...newUser } : u));
+        return [newUser, ...prev];
+      });
+      loadUsers();
+    });
+
+    sock.on('user_updated', (updatedUser) => {
+      setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? { ...u, ...updatedUser } : u)));
+      if (selectedCitizenDossier?.id === updatedUser.id) {
+        setSelectedCitizenDossier((prev) => ({ ...prev, ...updatedUser }));
+      }
+      loadUsers();
+    });
+
+    sock.on('verification_submitted', (data) => {
+      showNotification(`📄 ID Verification Submitted by Citizen #${data.userId}! Ready for review.`, 'info');
+      loadUsers();
+    });
+
+    sock.on('verification_updated', () => {
+      loadUsers();
+    });
   };
 
   const showNotification = (msg, type = 'info') => {
     setNotification({ msg, type });
     setTimeout(() => setNotification(null), 5000);
   };
+
+  const loadUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const res = await api.get('/admin/users');
+      if (res.data?.success) {
+        setUsers(res.data.users || []);
+      }
+    } catch (err) {
+      console.error('Failed to load sector citizens:', err);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const openCitizenDossier = async (targetUser) => {
+    setSelectedCitizenDossier(targetUser);
+    setLoadingDossier(true);
+    setDossierVerification(null);
+    try {
+      const res = await api.get(`/admin/users/${targetUser.id}/verification`);
+      if (res.data?.success && res.data.verification) {
+        setDossierVerification(res.data.verification);
+      }
+    } catch (err) {
+      console.warn('Could not load citizen verification detail:', err.message);
+    } finally {
+      setLoadingDossier(false);
+    }
+  };
+
+  const toggleCitizenVerification = async (targetUser, newStatus) => {
+    setVerifyingUser(true);
+    try {
+      const res = await api.patch(`/admin/users/${targetUser.id}/verification`, {
+        is_verified: newStatus === 'approved',
+        verification_status: newStatus,
+      });
+      if (res.data?.success) {
+        setUsers((prev) => prev.map((u) => (u.id === targetUser.id ? { ...u, is_verified: newStatus === 'approved', verification_status: newStatus } : u)));
+        if (selectedCitizenDossier?.id === targetUser.id) {
+          setSelectedCitizenDossier((prev) => ({ ...prev, is_verified: newStatus === 'approved', verification_status: newStatus }));
+          setDossierVerification((prev) => prev ? ({ ...prev, status: newStatus.toUpperCase() }) : prev);
+        }
+        showNotification(`✓ Citizen credentials: ${newStatus.toUpperCase()}`, 'success');
+      }
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Failed to update verification status', 'error');
+    } finally {
+      setVerifyingUser(false);
+    }
+  };
+
+  const subAdminSector = user?.profile?.city || (user?.email?.includes('porac') ? 'Porac' : user?.email?.includes('santarita') ? 'Santa Rita' : user?.email?.includes('guagua') ? 'Guagua' : 'Porac');
+
+  const subAdminCitizens = useMemo(() => {
+    return users.filter((u) => u.role === 'citizen' || u.role === 'user');
+  }, [users]);
+
+  const citizenStats = useMemo(() => {
+    const total = subAdminCitizens.length;
+    const verified = subAdminCitizens.filter((u) => u.is_verified || u.verification_status === 'approved').length;
+    const pendingReview = subAdminCitizens.filter((u) => u.verification_status === 'pending_admin').length;
+    const unverified = subAdminCitizens.filter((u) => !u.is_verified && u.verification_status !== 'approved' && u.verification_status !== 'pending_admin').length;
+    return { total, verified, pendingReview, unverified };
+  }, [subAdminCitizens]);
+
+  const filteredCitizens = useMemo(() => {
+    return subAdminCitizens.filter((u) => {
+      if (citizenKycFilter === 'verified') {
+        if (!u.is_verified && u.verification_status !== 'approved') return false;
+      } else if (citizenKycFilter === 'unverified') {
+        if (u.is_verified || u.verification_status === 'approved') return false;
+      } else if (citizenKycFilter === 'pending') {
+        if (u.verification_status !== 'pending_admin') return false;
+      }
+
+      if (userSearchQuery.trim()) {
+        const q = userSearchQuery.trim().toLowerCase();
+        const fName = `${u.profile?.first_name || ''} ${u.profile?.last_name || ''} ${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
+        const em = (u.email || '').toLowerCase();
+        const ph = (u.phone_number || '').toLowerCase();
+        const bg = (u.profile?.barangay || u.barangay || '').toLowerCase();
+        return fName.includes(q) || em.includes(q) || ph.includes(q) || bg.includes(q);
+      }
+      return true;
+    });
+  }, [subAdminCitizens, citizenKycFilter, userSearchQuery]);
 
   const loadRequests = async () => {
     setLoading(true);
@@ -821,6 +958,24 @@ export default function SubAdminDashboard({ user, onLogout }) {
           <span style={{ fontSize: '11px', color: '#64748b', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '12px' }}>
             TACTICAL DISPATCH ENGINE
           </span>
+
+          {/* Navigation Mode Switcher */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '6px' }}>
+            <button
+              onClick={() => setNavTab('dispatch')}
+              className={`filter-chip ${navTab === 'dispatch' ? 'active' : ''}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', padding: '6px 14px' }}
+            >
+              🚨 DISPATCH DECK ({requests.filter(r => ['Pending', 'Accepted', 'Responder Dispatched', 'En Route', 'Arrived', 'On Scene'].includes(r.status)).length})
+            </button>
+            <button
+              onClick={() => { setNavTab('citizens'); loadUsers(); }}
+              className={`filter-chip ${navTab === 'citizens' ? 'active' : ''}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', padding: '6px 14px' }}
+            >
+              👥 CITIZENS DIRECTORY ({subAdminCitizens.length})
+            </button>
+          </div>
         </div>
 
         {/* Real-time telemetry indicators */}
@@ -830,10 +985,23 @@ export default function SubAdminDashboard({ user, onLogout }) {
             <span className="mono-text" style={{ fontSize: '12px', fontWeight: '700', color: '#38bdf8' }}>{currentTime} UTC</span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(244,63,94,0.1)', padding: '5px 12px', borderRadius: '6px', border: '1px solid rgba(244,63,94,0.3)' }}>
-            <span style={{ fontSize: '10px', color: '#f43f5e', fontWeight: '800' }}>PENDING ALERTS</span>
-            <span className="mono-text" style={{ fontSize: '13px', fontWeight: '900', color: '#f43f5e' }}>{kpis.pending}</span>
-          </div>
+          {navTab === 'dispatch' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(244,63,94,0.1)', padding: '5px 12px', borderRadius: '6px', border: '1px solid rgba(244,63,94,0.3)' }}>
+              <span style={{ fontSize: '10px', color: '#f43f5e', fontWeight: '800' }}>PENDING ALERTS</span>
+              <span className="mono-text" style={{ fontSize: '13px', fontWeight: '900', color: '#f43f5e' }}>{kpis.pending}</span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', padding: '5px 10px', borderRadius: '6px' }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#10b981' }}>{citizenStats.verified} VERIFIED</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', padding: '5px 10px', borderRadius: '6px' }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#f59e0b' }} />
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#f59e0b' }}>{citizenStats.unverified} UNVERIFIED</span>
+              </div>
+            </div>
+          )}
 
           <button onClick={onLogout} style={{
             background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: '#94a3b8',
@@ -845,7 +1013,9 @@ export default function SubAdminDashboard({ user, onLogout }) {
       </header>
 
       {/* TACTICAL KPI METRIC STRIP */}
-      <div className="subadmin-kpi-grid">
+      {navTab === 'dispatch' && (
+        <>
+        <div className="subadmin-kpi-grid">
         {[
           { label: 'TOTAL RECORDED SOS', val: kpis.total, icon: '📊', color: '#0ea5e9' },
           { label: 'PENDING TRIAGE', val: kpis.pending, icon: '🚨', color: '#f43f5e' },
@@ -1524,6 +1694,286 @@ export default function SubAdminDashboard({ user, onLogout }) {
         </div>
 
       </div>
+      </>
+      )}
+
+      {/* CITIZENS DIRECTORY & KYC VERIFICATION PANEL */}
+      {navTab === 'citizens' && (
+        <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          
+          {/* Header strip: Sector Indicator & Sync Button */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '22px' }}>📍</span>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: '900', color: '#f8fafc', letterSpacing: '0.5px' }}>
+                  {subAdminSector.toUpperCase()} MUNICIPAL CITIZENS DIRECTORY & KYC
+                </div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>
+                  Live jurisdiction directory • Real-time registered citizen identity verification, ID reviews & emergency profiles
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={loadUsers}
+              disabled={usersLoading}
+              className="tactical-btn"
+              style={{ background: 'rgba(14,165,233,0.15)', border: '1px solid #0ea5e9', color: '#38bdf8' }}
+            >
+              {usersLoading ? '↻ SYNCING...' : '↻ SYNC CITIZENS DIRECTORY'}
+            </button>
+          </div>
+
+          {/* 4 KPI METRIC CARDS FOR CITIZENS */}
+          <div className="subadmin-kpi-grid" style={{ padding: 0 }}>
+            <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b' }}>TOTAL RESIDENTS</div>
+                <div className="mono-text" style={{ fontSize: '22px', fontWeight: '900', color: '#0ea5e9', marginTop: '2px' }}>{citizenStats.total}</div>
+              </div>
+              <span style={{ fontSize: '24px', opacity: 0.8 }}>👥</span>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b' }}>VERIFIED CITIZENS</div>
+                <div className="mono-text" style={{ fontSize: '22px', fontWeight: '900', color: '#10b981', marginTop: '2px' }}>{citizenStats.verified}</div>
+              </div>
+              <span style={{ fontSize: '24px', opacity: 0.8 }}>✓</span>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b' }}>PENDING ID REVIEW</div>
+                <div className="mono-text" style={{ fontSize: '22px', fontWeight: '900', color: '#38bdf8', marginTop: '2px' }}>{citizenStats.pendingReview}</div>
+              </div>
+              <span style={{ fontSize: '24px', opacity: 0.8 }}>⏳</span>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b' }}>UNVERIFIED (NO ID YET)</div>
+                <div className="mono-text" style={{ fontSize: '22px', fontWeight: '900', color: '#f59e0b', marginTop: '2px' }}>{citizenStats.unverified}</div>
+              </div>
+              <span style={{ fontSize: '24px', opacity: 0.8 }}>⚠️</span>
+            </div>
+          </div>
+
+          {/* FILTER AND SEARCH CONTROLS */}
+          <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b' }}>KYC STATUS:</span>
+              <button
+                className={`filter-chip ${citizenKycFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setCitizenKycFilter('all')}
+              >
+                ALL ({citizenStats.total})
+              </button>
+              <button
+                className={`filter-chip ${citizenKycFilter === 'verified' ? 'active' : ''}`}
+                onClick={() => setCitizenKycFilter('verified')}
+                style={citizenKycFilter === 'verified' ? { borderColor: '#10b981', color: '#10b981', background: 'rgba(16,185,129,0.15)' } : {}}
+              >
+                ✓ VERIFIED ({citizenStats.verified})
+              </button>
+              <button
+                className={`filter-chip ${citizenKycFilter === 'pending' ? 'active' : ''}`}
+                onClick={() => setCitizenKycFilter('pending')}
+                style={citizenKycFilter === 'pending' ? { borderColor: '#38bdf8', color: '#38bdf8', background: 'rgba(56,189,248,0.15)' } : {}}
+              >
+                ⏳ PENDING REVIEW ({citizenStats.pendingReview})
+              </button>
+              <button
+                className={`filter-chip ${citizenKycFilter === 'unverified' ? 'active' : ''}`}
+                onClick={() => setCitizenKycFilter('unverified')}
+                style={citizenKycFilter === 'unverified' ? { borderColor: '#f59e0b', color: '#f59e0b', background: 'rgba(245,158,11,0.15)' } : {}}
+              >
+                ⚠️ UNVERIFIED ({citizenStats.unverified})
+              </button>
+            </div>
+
+            <div style={{ width: '320px', position: 'relative' }}>
+              <input
+                type="text"
+                placeholder="🔍 Search name, barangay, phone, email..."
+                value={userSearchQuery}
+                onChange={(e) => setUserSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  color: '#f8fafc',
+                  fontSize: '12px',
+                  outline: 'none',
+                }}
+              />
+              {userSearchQuery && (
+                <button
+                  onClick={() => setUserSearchQuery('')}
+                  style={{
+                    position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '13px'
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* CITIZENS DIRECTORY TABLE / LIST */}
+          <div className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#64748b', textAlign: 'left', background: 'rgba(255,255,255,0.02)' }}>
+                    <th style={{ padding: '12px 16px' }}>CITIZEN RESIDENT</th>
+                    <th style={{ padding: '12px 16px' }}>MUNICIPAL SECTOR & ADDRESS</th>
+                    <th style={{ padding: '12px 16px' }}>CONTACT INFO</th>
+                    <th style={{ padding: '12px 16px' }}>REGISTRATION DATE</th>
+                    <th style={{ padding: '12px 16px' }}>KYC VERIFICATION STATUS</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>ACTION</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usersLoading && filteredCitizens.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                        Loading municipal citizens directory...
+                      </td>
+                    </tr>
+                  ) : filteredCitizens.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                        No citizens matching the selected criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredCitizens.map((c) => {
+                      const isApproved = c.is_verified || c.verification_status === 'approved';
+                      const isPending = c.verification_status === 'pending_admin';
+                      const isRejected = c.verification_status === 'rejected';
+                      const avatarUrl = c.profile?.avatar_url || (c.profile?.live_selfie_url);
+                      const fullName = `${c.profile?.first_name || c.first_name || 'Citizen'} ${c.profile?.last_name || c.last_name || ''}`.trim();
+                      const addressStr = c.profile?.address || (c.profile?.barangay ? `${c.profile.barangay}, ${subAdminSector}` : `${subAdminSector}, Pampanga`);
+
+                      return (
+                        <tr key={c.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.15s' }}>
+                          <td style={{ padding: '12px 16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{
+                                width: '38px', height: '38px', borderRadius: '50%',
+                                background: isApproved ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.06)',
+                                border: `1.5px solid ${isApproved ? '#10b981' : isPending ? '#0ea5e9' : 'rgba(255,255,255,0.15)'}`,
+                                overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                              }}>
+                                {avatarUrl ? (
+                                  <img src={getFileUrl(avatarUrl)} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
+                                ) : (
+                                  <span style={{ fontSize: '13px', fontWeight: '800', color: isApproved ? '#10b981' : '#94a3b8' }}>
+                                    {(c.first_name || 'C')[0]}{(c.last_name || '')[0]}
+                                  </span>
+                                )}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: '800', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {fullName}
+                                  <span className="mono-text" style={{ fontSize: '10px', color: '#64748b' }}>#{c.id}</span>
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                                  {c.email}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td style={{ padding: '12px 16px' }}>
+                            <div style={{ fontSize: '12px', color: '#cbd5e1' }}>
+                              📍 {addressStr}
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>
+                              Sector: <span style={{ color: '#38bdf8', fontWeight: '700' }}>{c.profile?.city || c.municipality || subAdminSector}</span>
+                            </div>
+                          </td>
+
+                          <td style={{ padding: '12px 16px' }}>
+                            <div className="mono-text" style={{ fontSize: '12px', color: '#38bdf8' }}>
+                              {c.phone_number || c.profile?.emergency_contact_phone || 'None provided'}
+                            </div>
+                            {c.profile?.emergency_contact_name && (
+                              <div style={{ fontSize: '10px', color: '#64748b' }}>
+                                Contact: {c.profile.emergency_contact_name}
+                              </div>
+                            )}
+                          </td>
+
+                          <td style={{ padding: '12px 16px', color: '#94a3b8', fontSize: '11px' }}>
+                            {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'Active Member'}
+                          </td>
+
+                          <td style={{ padding: '12px 16px' }}>
+                            {isApproved ? (
+                              <span style={{
+                                fontSize: '10.5px', fontWeight: '800', padding: '4px 10px', borderRadius: '4px',
+                                background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)',
+                                display: 'inline-flex', alignItems: 'center', gap: '5px'
+                              }}>
+                                ✓ VERIFIED CITIZEN
+                              </span>
+                            ) : isPending ? (
+                              <span style={{
+                                fontSize: '10.5px', fontWeight: '800', padding: '4px 10px', borderRadius: '4px',
+                                background: 'rgba(14,165,233,0.15)', color: '#38bdf8', border: '1px solid rgba(14,165,233,0.4)',
+                                display: 'inline-flex', alignItems: 'center', gap: '5px'
+                              }}>
+                                ⏳ PENDING REVIEW
+                              </span>
+                            ) : isRejected ? (
+                              <span style={{
+                                fontSize: '10.5px', fontWeight: '800', padding: '4px 10px', borderRadius: '4px',
+                                background: 'rgba(244,63,94,0.15)', color: '#f43f5e', border: '1px solid rgba(244,63,94,0.3)',
+                                display: 'inline-flex', alignItems: 'center', gap: '5px'
+                              }}>
+                                ✕ ID REJECTED
+                              </span>
+                            ) : (
+                              <span style={{
+                                fontSize: '10.5px', fontWeight: '800', padding: '4px 10px', borderRadius: '4px',
+                                background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)',
+                                display: 'inline-flex', alignItems: 'center', gap: '5px'
+                              }}>
+                                ⚠️ UNVERIFIED (NO ID)
+                              </span>
+                            )}
+                          </td>
+
+                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                            <button
+                              onClick={() => openCitizenDossier(c)}
+                              className="tactical-btn"
+                              style={{
+                                padding: '6px 12px', fontSize: '11px',
+                                background: isPending ? '#0ea5e9' : 'rgba(255,255,255,0.06)',
+                                border: '1px solid rgba(255,255,255,0.12)',
+                                color: '#f8fafc'
+                              }}
+                            >
+                              📋 VIEW DOSSIER / ID
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 1. DISPATCH UNIT ASSIGNMENT MODAL (Prompt Section 4 & Section 8) */}
       {showDispatchModal && selected && (
@@ -1812,6 +2262,220 @@ export default function SubAdminDashboard({ user, onLogout }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* CITIZEN DOSSIER & VERIFICATION MODAL */}
+      {selectedCitizenDossier && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+        }}>
+          <div style={{
+            background: '#0d1322', border: '1.5px solid #0ea5e9',
+            borderRadius: '12px', width: '100%', maxWidth: '780px', maxHeight: '90vh',
+            padding: '24px', boxShadow: '0 0 40px rgba(14,165,233,0.3)',
+            display: 'flex', flexDirection: 'column', gap: '16px', color: '#f8fafc',
+            overflowY: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: '900', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>📋</span>
+                  <span>CITIZEN EMERGENCY PROFILE & ID DOSSIER</span>
+                </div>
+                <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '2px' }}>
+                  Citizen ID #{selectedCitizenDossier.id} • Registered resident of {selectedCitizenDossier.profile?.city || selectedCitizenDossier.municipality || subAdminSector}
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedCitizenDossier(null)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Basic Info & Demographics Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              <div className="glass-panel" style={{ padding: '12px' }}>
+                <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>FULL NAME</div>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#f8fafc', marginTop: '2px' }}>
+                  {selectedCitizenDossier.profile?.first_name || selectedCitizenDossier.first_name || 'Citizen'} {selectedCitizenDossier.profile?.last_name || selectedCitizenDossier.last_name || ''}
+                </div>
+              </div>
+              <div className="glass-panel" style={{ padding: '12px' }}>
+                <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>EMAIL ADDRESS</div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#38bdf8', marginTop: '2px' }}>
+                  {selectedCitizenDossier.email}
+                </div>
+              </div>
+              <div className="glass-panel" style={{ padding: '12px' }}>
+                <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>PHONE NUMBER</div>
+                <div className="mono-text" style={{ fontSize: '13px', fontWeight: '800', color: '#10b981', marginTop: '2px' }}>
+                  {selectedCitizenDossier.phone_number || selectedCitizenDossier.profile?.emergency_contact_phone || 'None provided'}
+                </div>
+              </div>
+              <div className="glass-panel" style={{ padding: '12px' }}>
+                <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>MUNICIPALITY / BARANGAY</div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#cbd5e1', marginTop: '2px' }}>
+                  {selectedCitizenDossier.profile?.barangay || 'Brgy Central'}, {selectedCitizenDossier.profile?.city || subAdminSector}
+                </div>
+              </div>
+            </div>
+
+            {/* Medical & Emergency Contact Summary */}
+            <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: '#f59e0b', letterSpacing: '0.5px' }}>
+                MEDIC & EMERGENCY RESCUE DETAILS
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', fontSize: '12px' }}>
+                <div>
+                  <span style={{ color: '#64748b' }}>Blood Type: </span>
+                  <b style={{ color: '#f43f5e' }}>{selectedCitizenDossier.profile?.blood_type || 'Unknown'}</b>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b' }}>Emergency Contact: </span>
+                  <b style={{ color: '#cbd5e1' }}>{selectedCitizenDossier.profile?.emergency_contact_name || 'N/A'} ({selectedCitizenDossier.profile?.emergency_contact_phone || 'N/A'})</b>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b' }}>Special Needs: </span>
+                  <b style={{ color: '#cbd5e1' }}>{selectedCitizenDossier.profile?.special_needs || 'None'}</b>
+                </div>
+              </div>
+            </div>
+
+            {/* KYC & ID Document Verification Section */}
+            <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8', letterSpacing: '0.5px' }}>
+                  GOVERNMENT ID & LIVE FACIAL SCAN VERIFICATION
+                </div>
+                <span style={{
+                  fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px',
+                  background: (selectedCitizenDossier.is_verified || selectedCitizenDossier.verification_status === 'approved') ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)',
+                  color: (selectedCitizenDossier.is_verified || selectedCitizenDossier.verification_status === 'approved') ? '#10b981' : '#f59e0b',
+                  border: `1px solid ${(selectedCitizenDossier.is_verified || selectedCitizenDossier.verification_status === 'approved') ? 'rgba(16,185,129,0.4)' : 'rgba(245,158,11,0.4)'}`
+                }}>
+                  {(selectedCitizenDossier.is_verified || selectedCitizenDossier.verification_status === 'approved') ? '✓ ID VERIFIED' : selectedCitizenDossier.verification_status === 'pending_admin' ? '⏳ PENDING REVIEW' : '⚠️ UNVERIFIED'}
+                </span>
+              </div>
+
+              {loadingDossier ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
+                  Loading verification records...
+                </div>
+              ) : dossierVerification || selectedCitizenDossier.verification_requests?.[0] ? (
+                (() => {
+                  const ver = dossierVerification || selectedCitizenDossier.verification_requests?.[0];
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', fontSize: '11.5px', background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px' }}>
+                        <div><span style={{ color: '#64748b' }}>ID Type:</span> <b style={{ color: '#cbd5e1' }}>{ver.id_type || 'Philippine ID'}</b></div>
+                        <div><span style={{ color: '#64748b' }}>ID Number:</span> <b className="mono-text" style={{ color: '#38bdf8' }}>{ver.extracted_id_num || 'N/A'}</b></div>
+                        <div><span style={{ color: '#64748b' }}>AI Face Match:</span> <b style={{ color: (ver.facial_match_score || 0) >= 80 ? '#10b981' : '#f59e0b' }}>{ver.facial_match_score ? `${ver.facial_match_score}%` : 'Pending'}</b></div>
+                      </div>
+
+                      {/* Image Thumbnails */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                        {ver.id_image_url && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700' }}>ID FRONT</span>
+                            <div
+                              onClick={() => setLightboxImage(getFileUrl(ver.id_image_url))}
+                              style={{ height: '110px', borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: '#000' }}
+                            >
+                              <img src={getFileUrl(ver.id_image_url)} alt="Front ID" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
+                          </div>
+                        )}
+                        {ver.id_back_image && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700' }}>ID BACK</span>
+                            <div
+                              onClick={() => setLightboxImage(getFileUrl(ver.id_back_image))}
+                              style={{ height: '110px', borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: '#000' }}
+                            >
+                              <img src={getFileUrl(ver.id_back_image)} alt="Back ID" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
+                          </div>
+                        )}
+                        {ver.live_selfie_url && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700' }}>LIVE SELFIE</span>
+                            <div
+                              onClick={() => setLightboxImage(getFileUrl(ver.live_selfie_url))}
+                              style={{ height: '110px', borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: '#000' }}
+                            >
+                              <img src={getFileUrl(ver.live_selfie_url)} alt="Live Selfie" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
+                  ℹ️ This citizen has registered but has not yet uploaded government ID credentials.
+                </div>
+              )}
+            </div>
+
+            {/* ACTION BUTTONS: Approve / Reject / Revoke */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px', flexWrap: 'wrap' }}>
+              <button
+                disabled={verifyingUser}
+                onClick={() => toggleCitizenVerification(selectedCitizenDossier, 'approved')}
+                className="tactical-btn"
+                style={{ background: '#10b981', color: '#fff', padding: '10px 18px', fontSize: '12px', fontWeight: '800' }}
+              >
+                {verifyingUser ? 'SAVING...' : '✓ APPROVE & MARK VERIFIED'}
+              </button>
+              <button
+                disabled={verifyingUser}
+                onClick={() => toggleCitizenVerification(selectedCitizenDossier, 'rejected')}
+                className="tactical-btn danger"
+                style={{ padding: '10px 18px', fontSize: '12px', fontWeight: '800' }}
+              >
+                ✕ REJECT ID
+              </button>
+              <button
+                disabled={verifyingUser}
+                onClick={() => toggleCitizenVerification(selectedCitizenDossier, 'unverified')}
+                className="tactical-btn"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#cbd5e1', padding: '10px 16px', fontSize: '12px' }}
+              >
+                REVOKE STATUS
+              </button>
+              <button
+                onClick={() => setSelectedCitizenDossier(null)}
+                className="tactical-btn"
+                style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', padding: '10px 16px', fontSize: '12px' }}
+              >
+                CLOSE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LIGHTBOX MODAL */}
+      {lightboxImage && (
+        <div
+          onClick={() => setLightboxImage(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 10000,
+            background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(10px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', cursor: 'zoom-out'
+          }}
+        >
+          <img
+            src={lightboxImage}
+            alt="Enlarged Document"
+            style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: '8px', border: '2px solid #0ea5e9', boxShadow: '0 0 50px rgba(14,165,233,0.5)' }}
+          />
         </div>
       )}
 
