@@ -345,10 +345,25 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
   const socketRef = useRef(null);
   const simIntervalRef = useRef(null);
   const activeRequestRef = useRef(activeRequest);
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
+  const videoRef = useRef(null);
+
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
+  const [cameraError, setCameraError] = useState('');
 
   useEffect(() => {
     activeRequestRef.current = activeRequest;
   }, [activeRequest]);
+
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, [cameraStream]);
 
   // Live continuous GPS stream when emergency tracking is active
   useEffect(() => {
@@ -713,8 +728,62 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
     }
   };
 
-  const handleMediaUpload = async (e) => {
-    const file = e.target.files[0];
+  const startCamera = async () => {
+    // If running on a mobile device, triggering the native camera input is fastest and provides full resolution
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      cameraInputRef.current?.click();
+      return;
+    }
+
+    // On desktop, open the in-browser interactive camera viewfinder modal
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      setCameraError('');
+      setShowCameraModal(true);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+        setCameraStream(stream);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.warn('[Camera Access Warning]:', err.message);
+        setCameraError('Unable to access webcam directly. You can use your device camera file picker instead.');
+      }
+    } else {
+      cameraInputRef.current?.click();
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((t) => t.stop());
+      setCameraStream(null);
+    }
+    setShowCameraModal(false);
+  };
+
+  const capturePhotoFromStream = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], `incident-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        handleMediaUpload(file);
+      }
+      stopCamera();
+    }, 'image/jpeg', 0.9);
+  };
+
+  const handleMediaUpload = async (eOrFile) => {
+    const file = eOrFile?.target?.files ? eOrFile.target.files[0] : eOrFile;
     if (!file) return;
     setPhotoUploading(true);
     try {
@@ -735,6 +804,8 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
       showNotification('Photo upload failed. You can still transmit with GPS.', 'error');
     } finally {
       setPhotoUploading(false);
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+      if (galleryInputRef.current) galleryInputRef.current.value = '';
     }
   };
 
@@ -1449,39 +1520,134 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
               </div>
             </div>
 
-            {/* 2. INCIDENT PHOTO (OPTIONAL) */}
+            {/* 2. INCIDENT PHOTO (OPTIONAL) - CAMERA & GALLERY OPTIONS */}
             <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div>
-                <label className="form-label">STEP 2: INCIDENT PHOTO (OPTIONAL)</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleMediaUpload}
-                    disabled={photoUploading}
-                    className="tactical-input"
-                    style={{ flex: 1, padding: '7px' }}
-                  />
-                  {photoUploading && <span style={{ fontSize: '10.5px', color: '#0ea5e9' }}>Uploading...</span>}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label className="form-label" style={{ margin: 0, color: '#f8fafc' }}>
+                    STEP 2: INCIDENT PHOTO (OPTIONAL)
+                  </label>
+                  <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>Visual scene evidence</span>
                 </div>
+
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '8px' }}>
+                  Capture a live photo using your camera or choose an existing photo from your gallery.
+                </div>
+
+                {/* Hidden File Inputs for Camera and Gallery */}
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleMediaUpload}
+                  style={{ display: 'none' }}
+                />
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleMediaUpload}
+                  style={{ display: 'none' }}
+                />
+
+                {/* 2 Quick Action Buttons: Open Camera & Open Gallery */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                  <button
+                    type="button"
+                    disabled={photoUploading}
+                    onClick={startCamera}
+                    className="tactical-btn"
+                    style={{
+                      padding: '12px 14px',
+                      background: 'linear-gradient(135deg, rgba(14,165,233,0.18), rgba(2,132,199,0.25))',
+                      border: '1.5px solid #0ea5e9',
+                      color: '#38bdf8',
+                      borderRadius: '8px',
+                      fontWeight: '800',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 12px rgba(14,165,233,0.25)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                      <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                    <span>OPEN CAMERA</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={photoUploading}
+                    onClick={() => galleryInputRef.current?.click()}
+                    className="tactical-btn"
+                    style={{
+                      padding: '12px 14px',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1.5px solid rgba(255,255,255,0.2)',
+                      color: '#f8fafc',
+                      borderRadius: '8px',
+                      fontWeight: '800',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                      <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                    <span>OPEN GALLERY</span>
+                  </button>
+                </div>
+
+                {photoUploading && (
+                  <div style={{ marginTop: '8px', fontSize: '11px', color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>Uploading incident photo to emergency server...</span>
+                  </div>
+                )}
+
+                {/* Attached Photo Preview */}
                 {sosForm.photo_url && (
-                  <div style={{ marginTop: '8px', padding: '8px', borderRadius: '6px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: '8px', background: 'rgba(16,185,129,0.1)', border: '1.5px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <img
                       src={sosForm.photo_url.startsWith('http') || sosForm.photo_url.startsWith('/uploads') ? sosForm.photo_url : `/uploads/${sosForm.photo_url}`}
                       alt="Preview"
-                      style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #10b981' }}
+                      style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #10b981' }}
                     />
                     <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <div style={{ color: '#10b981', fontSize: '11px', fontWeight: '800' }}>✓ Photo Attached</div>
-                      <div style={{ color: '#94a3b8', fontSize: '9.5px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{sosForm.photo_url.split('/').pop()}</div>
+                      <div style={{ color: '#10b981', fontSize: '11.5px', fontWeight: '800' }}>✓ Photo Attached</div>
+                      <div style={{ color: '#94a3b8', fontSize: '10px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                        {sosForm.photo_url.split('/').pop()}
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setSosForm(f => ({ ...f, photo_url: null }))}
-                      style={{ background: 'none', border: 'none', color: '#f43f5e', fontSize: '10.5px', cursor: 'pointer', fontWeight: '800' }}
-                    >
-                      REMOVE
-                    </button>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => galleryInputRef.current?.click()}
+                        style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#38bdf8', fontSize: '10.5px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700' }}
+                      >
+                        CHANGE
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSosForm(f => ({ ...f, photo_url: null }))}
+                        style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.3)', color: '#f43f5e', fontSize: '10.5px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: '800' }}
+                      >
+                        REMOVE
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -2631,6 +2797,96 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                   </button>
                 </div>
               </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── LIVE CAMERA VIEWFINDER MODAL ─── */}
+      {showCameraModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.88)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
+          }}
+          onClick={(e) => e.target === e.currentTarget && stopCamera()}
+        >
+          <div style={{
+            width: '100%', maxWidth: '480px', background: '#0b1120', border: '1.5px solid #0ea5e9',
+            borderRadius: '12px', padding: '18px', boxShadow: '0 20px 50px rgba(0,0,0,0.85)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ fontWeight: '900', fontSize: '14.5px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+                <span>EMERGENCY CAMERA VIEWFINDER</span>
+              </div>
+              <button
+                type="button"
+                onClick={stopCamera}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {cameraError ? (
+              <div style={{ padding: '16px', background: 'rgba(244,63,94,0.15)', border: '1px solid #f43f5e', borderRadius: '8px', textAlign: 'center', color: '#f8fafc', fontSize: '12px' }}>
+                <p style={{ margin: '0 0 12px', color: '#f43f5e', fontWeight: '700' }}>{cameraError}</p>
+                <button
+                  type="button"
+                  onClick={() => { stopCamera(); cameraInputRef.current?.click(); }}
+                  className="tactical-btn"
+                  style={{ padding: '8px 16px', background: '#0ea5e9', color: '#fff', fontSize: '12px', fontWeight: '800' }}
+                >
+                  USE DEVICE CAMERA APP
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ position: 'relative', background: '#000', borderRadius: '8px', overflow: 'hidden', aspectRatio: '4/3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(244,63,94,0.8)', color: '#fff', fontSize: '9.5px', fontWeight: '900', padding: '2px 8px', borderRadius: '4px', letterSpacing: '0.5px' }}>
+                    LIVE FEED
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+                  <button
+                    type="button"
+                    onClick={stopCamera}
+                    style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: '#94a3b8', borderRadius: '6px', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}
+                  >
+                    CANCEL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={capturePhotoFromStream}
+                    style={{
+                      flex: 1.6,
+                      padding: '10px',
+                      background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)',
+                      border: 'none',
+                      color: '#fff',
+                      borderRadius: '6px',
+                      fontWeight: '900',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 15px rgba(14,165,233,0.4)',
+                    }}
+                  >
+                    SNAP PHOTO
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
