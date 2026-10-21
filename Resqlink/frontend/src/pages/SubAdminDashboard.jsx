@@ -6,6 +6,7 @@ import { io } from 'socket.io-client';
 import { RESQLINK_TOWN_CENTERS } from '../data/PampangaData';
 import { EmergencyBadges, CriticalBadge, CriticalWarningLogo, getIncidentEmergencies, EmergencyStatusTracker, EMERGENCY_STATUS_STEPS, RESCUE_DEPARTMENTS, mapEmergencyCategoriesToDepartments } from '../utils/emergencyHelper';
 import { getSocketUrl, getFileUrl } from '../utils/urlHelper';
+import BodyInjuryMap from '../components/BodyInjuryMap';
 
 const SOCKET_URL = getSocketUrl();
 
@@ -244,6 +245,25 @@ export default function SubAdminDashboard({ user, onLogout }) {
 
     sock.on('receive_chat_message', ({ incidentId, message }) => {
       setChatMessages((prev) => [...prev, message]);
+    });
+
+    sock.on('emergency:injury_updated', (data) => {
+      const rid = data.incident_id || data.id;
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === rid
+            ? { ...r, injuries: data.injuries, injury_description: data.injury_description }
+            : r
+        )
+      );
+      if (selected && selected.id === rid) {
+        setSelected((prev) => ({
+          ...prev,
+          injuries: data.injuries,
+          injury_description: data.injury_description,
+        }));
+      }
+      showNotification(`🩺 Emergency #${rid} injury mapping updated in real-time.`, 'info');
     });
 
     // WebRTC Signaling
@@ -1512,6 +1532,38 @@ export default function SubAdminDashboard({ user, onLogout }) {
                     </button>
                   )}
                 </div>
+              </div>
+
+              {/* DISPATCHER INJURY MAPPING HUD CARD */}
+              <div className="glass-panel" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '16px' }}>🩺</span>
+                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#f43f5e', letterSpacing: '1px' }}>
+                      REPORTED INJURIES & ANATOMICAL VISUALIZATION
+                    </span>
+                    <span style={{
+                      fontSize: '9.5px', fontWeight: '800', padding: '2px 8px', borderRadius: '4px',
+                      background: (selected.injuries && selected.injuries.length > 0) ? 'rgba(244,63,94,0.15)' : 'rgba(148,163,184,0.15)',
+                      color: (selected.injuries && selected.injuries.length > 0) ? '#f43f5e' : '#94a3b8',
+                      border: `1px solid ${(selected.injuries && selected.injuries.length > 0) ? 'rgba(244,63,94,0.3)' : 'rgba(148,163,184,0.25)'}`
+                    }}>
+                      {selected.injuries ? selected.injuries.filter(i => i.is_active !== false).length : 0} REGIONS REPORTED
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '10px', color: '#38bdf8', fontWeight: '700' }}>
+                    DISPATCHER TRIAGE VIEW
+                  </span>
+                </div>
+
+                <BodyInjuryMap
+                  selectedInjuries={selected.injuries || []}
+                  injuryDescription={selected.injury_description || ''}
+                  editable={false}
+                  showNotes={true}
+                  compact={false}
+                  showTitle={false}
+                />
               </div>
 
               {/* Dynamic Telemetry Metric Strip */}

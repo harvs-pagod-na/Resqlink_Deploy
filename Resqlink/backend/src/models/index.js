@@ -13,12 +13,17 @@ const Notification = require('./Notification');
 const ResqRequest = require('./ResqRequest');
 const PublicAlert = require('./PublicAlert');
 const IncidentTrackingLog = require('./IncidentTrackingLog');
+const ResqInjury = require('./ResqInjury');
 
 // ─── ResQLink Core Associations ───────────────────────────────────
 User.hasMany(ResqRequest, { foreignKey: 'user_id', as: 'resq_requests', onDelete: 'CASCADE' });
 ResqRequest.belongsTo(User, { foreignKey: 'user_id', as: 'requester', onDelete: 'CASCADE' });
 ResqRequest.belongsTo(User, { foreignKey: 'assigned_responder_id', as: 'assigned_responder', onDelete: 'SET NULL' });
 ResqRequest.belongsTo(User, { foreignKey: 'assigned_subadmin_id', as: 'assigned_subadmin', onDelete: 'SET NULL' });
+
+ResqRequest.hasMany(ResqInjury, { foreignKey: 'resq_request_id', as: 'injuries', onDelete: 'CASCADE' });
+ResqInjury.belongsTo(ResqRequest, { foreignKey: 'resq_request_id', as: 'incident', onDelete: 'CASCADE' });
+ResqInjury.belongsTo(User, { foreignKey: 'reporter_user_id', as: 'reporter', onDelete: 'SET NULL' });
 
 ResqRequest.hasMany(IncidentTrackingLog, { foreignKey: 'incident_id', as: 'tracking_logs', onDelete: 'CASCADE' });
 IncidentTrackingLog.belongsTo(ResqRequest, { foreignKey: 'incident_id', as: 'incident', onDelete: 'CASCADE' });
@@ -69,4 +74,5 @@ module.exports = {
   ResqRequest,
   PublicAlert,
   IncidentTrackingLog,
+  ResqInjury,
 };

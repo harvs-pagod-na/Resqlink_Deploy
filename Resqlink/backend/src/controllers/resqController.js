@@ -1,4 +1,4 @@
-const { ResqRequest, User, Profile, Notification, IncidentTrackingLog, sequelize } = require('../models');
+const { ResqRequest, User, Profile, Notification, IncidentTrackingLog, ResqInjury, AuditLog, sequelize } = require('../models');
 const { generatePresignedUploadUrl } = require('../services/s3Service');
 const { getAdminJurisdiction } = require('../utils/jurisdiction');
 const { handleLiveLocationAndProgression } = require('../services/stageProgressionService');
@@ -110,6 +110,8 @@ exports.createResqRequest = async (req, res) => {
       photo_url,
       contact_number,
       target_agency,
+      injuries,
+      injury_description,
     } = req.body;
 
     const lat = parseFloat(latitude);
@@ -161,6 +163,7 @@ exports.createResqRequest = async (req, res) => {
       emergency_type: safeType,
       severity_level: safeSeverity,
       description: description || '',
+      injury_description: injury_description ? String(injury_description).slice(0, 2000) : null,
       latitude: lat,
       longitude: lng,
       municipality: validTown,
@@ -173,6 +176,29 @@ exports.createResqRequest = async (req, res) => {
       reported_at: new Date(),
     });
 
+    // Save injury locations if reported by citizen
+    if (Array.isArray(injuries) && injuries.length > 0) {
+      try {
+        const sanitizedInjuries = injuries.map((inj) => ({
+          resq_request_id: resq.id,
+          body_part: String(inj.body_part || '').trim().slice(0, 100),
+          body_part_label: String(inj.body_part_label || inj.body_part || '').trim().slice(0, 150),
+          view_orientation: ['front', 'back', 'both'].includes(inj.view_orientation) ? inj.view_orientation : 'front',
+          reported_by: 'citizen',
+          reporter_user_id: userId,
+          status: 'reported',
+          is_active: true,
+          notes: inj.notes ? String(inj.notes).slice(0, 1000) : null,
+        })).filter((inj) => inj.body_part.length > 0);
+
+        if (sanitizedInjuries.length > 0) {
+          await ResqInjury.bulkCreate(sanitizedInjuries);
+        }
+      } catch (injErr) {
+        console.warn('[ResqInjury Non-Fatal Warning]:', injErr.message);
+      }
+    }
+
     // Record initial tracking log (protected in try/catch to ensure primary dispatch never fails)
     try {
       await IncidentTrackingLog.create({
@@ -182,7 +208,7 @@ exports.createResqRequest = async (req, res) => {
         actor_role: (req.user?.role || 'citizen').slice(0, 50),
         previous_status: null,
         new_status: 'Pending',
-        notes: `Incident reported: ${safeType} in ${barangay || validTown}`,
+        notes: `Incident reported: ${safeType} in ${barangay || validTown}${Array.isArray(injuries) && injuries.length > 0 ? ` (${injuries.length} injury locations reported)` : ''}`,
         latitude: lat,
         longitude: lng,
       });
@@ -201,6 +227,10 @@ exports.createResqRequest = async (req, res) => {
         {
           model: IncidentTrackingLog,
           as: 'tracking_logs',
+        },
+        {
+          model: ResqInjury,
+          as: 'injuries',
         },
       ],
     });
@@ -266,6 +296,10 @@ exports.getMyResqRequests = async (req, res) => {
           model: IncidentTrackingLog,
           as: 'tracking_logs',
         },
+        {
+          model: ResqInjury,
+          as: 'injuries',
+        },
       ],
     });
 
@@ -311,6 +345,10 @@ exports.getActiveResqRequest = async (req, res) => {
         {
           model: IncidentTrackingLog,
           as: 'tracking_logs',
+        },
+        {
+          model: ResqInjury,
+          as: 'injuries',
         },
       ],
     });
@@ -407,6 +445,10 @@ exports.getAllResqRequests = async (req, res) => {
         {
           model: IncidentTrackingLog,
           as: 'tracking_logs',
+        },
+        {
+          model: ResqInjury,
+          as: 'injuries',
         },
       ],
     });
@@ -1347,3 +1389,223 @@ exports.getResqAnalytics = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// 15. Get Incident Injury Mapping & Details
+exports.getIncidentInjuries = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const resq = await ResqRequest.findByPk(id);
+
+    if (!resq) {
+      return res.status(404).json({ success: false, message: 'Incident not found' });
+    }
+
+    // Role-based access control: citizens can only view their own incident
+    if (req.user.role === 'citizen' && resq.user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Unauthorized access to incident injury details' });
+    }
+
+    // Jurisdiction enforcement for admins / dispatchers
+    const assignedJurisdiction = getAdminJurisdiction(req.user);
+    if (assignedJurisdiction !== 'all' && resq.municipality !== assignedJurisdiction) {
+      return res.status(403).json({ success: false, message: 'Jurisdiction restriction: outside your operational sector' });
+    }
+
+    // Subadmins can only see assigned incidents unless jurisdiction permits
+    if (req.user.role === 'sub_admin' && resq.assigned_subadmin_id && resq.assigned_subadmin_id !== req.user.id && assignedJurisdiction !== resq.municipality) {
+      return res.status(403).json({ success: false, message: 'This incident is assigned to another dispatcher' });
+    }
+
+    const injuries = await ResqInjury.findAll({
+      where: { resq_request_id: id },
+      order: [['createdAt', 'ASC']],
+      include: [
+        {
+          model: User,
+          as: 'reporter',
+          attributes: ['id', 'email', 'role'],
+          include: [{ model: Profile, as: 'profile' }],
+        },
+      ],
+    });
+
+    return res.json({
+      success: true,
+      incident_id: resq.id,
+      injury_description: resq.injury_description,
+      injuries,
+    });
+  } catch (error) {
+    console.error('[GET INCIDENT INJURIES ERROR]', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// 16. Admin / Sub-Admin Update & Configure Incident Injury Locations
+exports.updateIncidentInjuries = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const actorId = req.user.id;
+    const actorRole = req.user.role;
+
+    const resq = await ResqRequest.findByPk(id);
+    if (!resq) {
+      return res.status(404).json({ success: false, message: 'Incident not found' });
+    }
+
+    // Jurisdiction check
+    const assignedJurisdiction = getAdminJurisdiction(req.user);
+    if (assignedJurisdiction !== 'all' && resq.municipality !== assignedJurisdiction) {
+      return res.status(403).json({ success: false, message: 'Jurisdiction restriction: outside your operational sector' });
+    }
+
+    // Subadmins can only configure if assigned to them or within sector
+    if (actorRole === 'sub_admin' && resq.assigned_subadmin_id && resq.assigned_subadmin_id !== actorId && assignedJurisdiction !== resq.municipality) {
+      return res.status(403).json({ success: false, message: 'Unauthorized: Incident assigned to another dispatcher' });
+    }
+
+    const { injuries, injury_description, modification_note } = req.body;
+
+    // Update overall injury description if provided
+    if (injury_description !== undefined) {
+      resq.injury_description = injury_description ? String(injury_description).slice(0, 2000) : null;
+      await resq.save();
+    }
+
+    // Process injury regions if array provided
+    if (Array.isArray(injuries)) {
+      const existingInjuries = await ResqInjury.findAll({
+        where: { resq_request_id: id },
+      });
+
+      const incomingPartMap = new Map();
+      injuries.forEach((inj) => {
+        if (inj && inj.body_part) {
+          incomingPartMap.set(inj.body_part, inj);
+        }
+      });
+
+      const addedParts = [];
+      const removedParts = [];
+
+      // Check existing records: if missing in incoming list, mark inactive/removed_by_admin (preserves citizen history!)
+      for (const existing of existingInjuries) {
+        if (!incomingPartMap.has(existing.body_part)) {
+          if (existing.is_active) {
+            existing.is_active = false;
+            existing.status = 'removed_by_admin';
+            await existing.save();
+            removedParts.push(existing.body_part_label || existing.body_part);
+          }
+        } else {
+          // It is in incoming list; ensure active
+          const incoming = incomingPartMap.get(existing.body_part);
+          if (!existing.is_active || incoming.notes !== undefined) {
+            existing.is_active = true;
+            if (incoming.notes !== undefined) existing.notes = incoming.notes ? String(incoming.notes).slice(0, 1000) : null;
+            await existing.save();
+          }
+          incomingPartMap.delete(existing.body_part); // Handled
+        }
+      }
+
+      // Any remaining in incomingPartMap are new additions
+      for (const [bodyPart, inj] of incomingPartMap.entries()) {
+        await ResqInjury.create({
+          resq_request_id: id,
+          body_part: bodyPart.slice(0, 100),
+          body_part_label: String(inj.body_part_label || bodyPart).slice(0, 150),
+          view_orientation: ['front', 'back', 'both'].includes(inj.view_orientation) ? inj.view_orientation : 'front',
+          reported_by: actorRole.includes('admin') ? 'admin' : 'subadmin',
+          reporter_user_id: actorId,
+          status: 'confirmed',
+          is_active: true,
+          notes: inj.notes ? String(inj.notes).slice(0, 1000) : null,
+        });
+        addedParts.push(inj.body_part_label || bodyPart);
+      }
+
+      // Create tracking log & audit record
+      const changeParts = [];
+      if (addedParts.length) changeParts.push(`Added: ${addedParts.join(', ')}`);
+      if (removedParts.length) changeParts.push(`Removed: ${removedParts.join(', ')}`);
+      const auditSummary = changeParts.join(' | ') || 'Updated injury details';
+
+      try {
+        await IncidentTrackingLog.create({
+          incident_id: resq.id,
+          actor_id: actorId,
+          actor_name: req.user.email || 'Dispatcher',
+          actor_role: actorRole,
+          previous_status: resq.status,
+          new_status: resq.status,
+          notes: `[INJURY MAPPING ADJUSTMENT] ${auditSummary}${modification_note ? ` (Note: ${modification_note})` : ''}`,
+          latitude: resq.latitude,
+          longitude: resq.longitude,
+        });
+
+        await AuditLog.create({
+          user_id: actorId,
+          action: 'UPDATE_INJURY_MAPPING',
+          entity: 'ResqRequest',
+          entity_id: String(resq.id),
+          ip_address: req.ip || '127.0.0.1',
+          user_agent: req.headers['user-agent'] || 'ResQLink Admin',
+          details: { summary: auditSummary, incident_id: resq.id },
+        });
+      } catch (logErr) {
+        console.warn('[Audit/Tracking Log Warning]:', logErr.message);
+      }
+    }
+
+    // Retrieve refreshed injuries list
+    const refreshedInjuries = await ResqInjury.findAll({
+      where: { resq_request_id: id },
+      order: [['createdAt', 'ASC']],
+      include: [
+        {
+          model: User,
+          as: 'reporter',
+          attributes: ['id', 'email', 'role'],
+          include: [{ model: Profile, as: 'profile' }],
+        },
+      ],
+    });
+
+    const activeInjuries = refreshedInjuries.filter((i) => i.is_active);
+
+    // Broadcast live over Socket.IO
+    const io = req.app.get('io');
+    if (io) {
+      const payload = {
+        incident_id: resq.id,
+        injuries: refreshedInjuries,
+        active_injuries: activeInjuries,
+        injury_description: resq.injury_description,
+        updated_by: {
+          id: actorId,
+          role: actorRole,
+          email: req.user.email,
+        },
+        timestamp: new Date().toISOString(),
+      };
+      io.emit('emergency:injury_updated', payload);
+      io.to('role_admin').emit('emergency:injury_updated', payload);
+      io.to('role_sub_admin').emit('emergency:injury_updated', payload);
+      io.to(`resq_${resq.id}`).emit('emergency:injury_updated', payload);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Injury mapping updated successfully.',
+      incident_id: resq.id,
+      injury_description: resq.injury_description,
+      injuries: refreshedInjuries,
+      active_injuries: activeInjuries,
+    });
+  } catch (error) {
+    console.error('[UPDATE INCIDENT INJURIES ERROR]', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+

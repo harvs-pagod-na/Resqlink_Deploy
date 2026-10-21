@@ -99,4 +99,17 @@ router.post(
   resqController.updateResponderLocation
 );
 
+// Injury Mapping Endpoints
+router.get(
+  '/:id/injuries',
+  authenticate,
+  resqController.getIncidentInjuries
+);
+router.put(
+  '/:id/injuries',
+  authenticate,
+  requireRole('admin', 'sub_admin', 'super_admin', 'mdrrmo_admin'),
+  resqController.updateIncidentInjuries
+);
+
 module.exports = router;

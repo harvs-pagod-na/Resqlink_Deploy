@@ -138,6 +138,10 @@ const ResqRequest = sequelize.define('ResqRequest', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  injury_description: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
   reported_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,

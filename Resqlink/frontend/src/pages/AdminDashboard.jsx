@@ -5,6 +5,7 @@ import api from '../api';
 import { io } from 'socket.io-client';
 import { EmergencyBadges, CriticalBadge, CriticalWarningLogo, getIncidentEmergencies, RESCUE_DEPARTMENTS, mapEmergencyCategoriesToDepartments, EmergencyStatusTracker, EMERGENCY_STATUS_STEPS } from '../utils/emergencyHelper';
 import { getSocketUrl, getFileUrl } from '../utils/urlHelper';
+import BodyInjuryMap from '../components/BodyInjuryMap';
 
 const SOCKET_URL = getSocketUrl();
 
@@ -131,6 +132,47 @@ function DispatchModal({ request, onClose, onSave }) {
   const [saving, setSaving] = useState(false);
   const [showFullPhoto, setShowFullPhoto] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const [injuries, setInjuries] = useState(request.injuries || []);
+  const [injuryDescription, setInjuryDescription] = useState(request.injury_description || '');
+  const [savingInjuries, setSavingInjuries] = useState(false);
+  const [injurySaveMsg, setInjurySaveMsg] = useState('');
+  const [isEditingInjuries, setIsEditingInjuries] = useState(false);
+
+  useEffect(() => {
+    if (request.injuries) setInjuries(request.injuries);
+    if (request.injury_description !== undefined) setInjuryDescription(request.injury_description || '');
+  }, [request]);
+
+  const handleSaveInjuryMapping = async () => {
+    setSavingInjuries(true);
+    setInjurySaveMsg('');
+    try {
+      const res = await api.put(`/resq/${request.id}/injuries`, {
+        injuries,
+        injury_description: injuryDescription,
+        modification_note: 'Admin verified and updated injury mapping',
+      });
+      if (res.data?.success) {
+        setInjuries(res.data.injuries || []);
+        setInjuryDescription(res.data.injury_description || '');
+        setInjurySaveMsg('✓ Injury mapping updated and synchronized in real-time!');
+        setIsEditingInjuries(false);
+        if (onSave) {
+          onSave({
+            ...request,
+            injuries: res.data.injuries,
+            injury_description: res.data.injury_description,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('[Injury Save Error]:', err);
+      setInjurySaveMsg('⚠️ Failed to save: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setSavingInjuries(false);
+    }
+  };
 
   useEffect(() => {
     fetchSubAdmins();
@@ -450,6 +492,113 @@ function DispatchModal({ request, onClose, onSave }) {
               )}
             </div>
 
+          </div>
+
+          {/* INTERACTIVE HUMAN BODY INJURY MAPPING (ADMIN TRIAGE & CONFIGURATION) */}
+          <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>🩺</span>
+                <span style={{ fontWeight: '800', color: '#f43f5e', fontSize: '11px', letterSpacing: '1px' }}>
+                  REPORTED INJURIES & ANATOMICAL MAPPING
+                </span>
+                <span style={{
+                  fontSize: '9.5px', fontWeight: '800', padding: '2px 8px', borderRadius: '4px',
+                  background: (injuries && injuries.length > 0) ? 'rgba(244,63,94,0.15)' : 'rgba(148,163,184,0.15)',
+                  color: (injuries && injuries.length > 0) ? '#f43f5e' : '#94a3b8',
+                  border: `1px solid ${(injuries && injuries.length > 0) ? 'rgba(244,63,94,0.3)' : 'rgba(148,163,184,0.25)'}`
+                }}>
+                  {injuries ? injuries.filter(i => i.is_active !== false).length : 0} REGIONS REPORTED
+                </span>
+              </div>
+
+              {/* Action Buttons for Admin Configuration */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {!isEditingInjuries ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingInjuries(true)}
+                    className="tactical-btn"
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      border: '1px solid rgba(56, 189, 248, 0.4)',
+                      color: '#38bdf8',
+                      padding: '5px 12px',
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ✏️ CONFIGURE / REVISE INJURIES
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      disabled={savingInjuries}
+                      onClick={handleSaveInjuryMapping}
+                      className="tactical-btn"
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        color: '#fff',
+                        padding: '5px 14px',
+                        fontSize: '11px',
+                        fontWeight: '900',
+                        cursor: 'pointer',
+                        border: 'none',
+                      }}
+                    >
+                      {savingInjuries ? 'SAVING...' : '💾 SAVE REVISIONS'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={savingInjuries}
+                      onClick={() => {
+                        setInjuries(request.injuries || []);
+                        setInjuryDescription(request.injury_description || '');
+                        setIsEditingInjuries(false);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        color: '#94a3b8',
+                        padding: '5px 10px',
+                        fontSize: '11px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {injurySaveMsg && (
+              <div style={{
+                marginBottom: '10px',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                background: injurySaveMsg.includes('✓') ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)',
+                color: injurySaveMsg.includes('✓') ? '#10b981' : '#f43f5e',
+                fontSize: '11.5px',
+                fontWeight: '700',
+              }}>
+                {injurySaveMsg}
+              </div>
+            )}
+
+            <BodyInjuryMap
+              selectedInjuries={injuries}
+              onChange={setInjuries}
+              injuryDescription={injuryDescription}
+              onDescriptionChange={setInjuryDescription}
+              editable={isEditingInjuries}
+              showNotes={true}
+              compact={false}
+              showTitle={false}
+            />
           </div>
 
           {/* Fullscreen Photo Lightbox Modal */}
@@ -1190,6 +1339,15 @@ export default function AdminDashboard({ user, onLogout }) {
     sock.on('responder_arrived', (data) => {
       showNotification(`📍 Responders ARRIVED at Scene #${data.id}!`, 'info');
       loadRequests();
+    });
+
+    sock.on('emergency:injury_updated', (data) => {
+      const rid = data.incident_id || data.id;
+      setRequests((prev) => {
+        return prev.map((r) => (r.id === rid ? { ...r, injuries: data.injuries, injury_description: data.injury_description } : r));
+      });
+      setSelected((prev) => (prev && prev.id === rid ? { ...prev, injuries: data.injuries, injury_description: data.injury_description } : prev));
+      showNotification(`🩺 Emergency #${rid} injury mapping updated in real-time.`, 'alert');
     });
 
     sock.on('resq_live_location', (data) => {

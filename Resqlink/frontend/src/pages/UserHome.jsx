@@ -13,6 +13,7 @@ import {
 } from '../data/PampangaData';
 import { EmergencyBadges, CriticalBadge, EmergencyStatusTracker, EMERGENCY_STATUS_STEPS } from '../utils/emergencyHelper';
 import { getSocketUrl } from '../utils/urlHelper';
+import BodyInjuryMap from '../components/BodyInjuryMap';
 
 const SOCKET_URL = getSocketUrl();
 
@@ -109,6 +110,9 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
     photo_url: '',
     contact_number: user?.phone_number || '',
   });
+  const [selectedInjuries, setSelectedInjuries] = useState([]);
+  const [injuryDescription, setInjuryDescription] = useState('');
+  const [expandedHistoryId, setExpandedHistoryId] = useState(null);
 
   // Verification state sourced from session & verification API
   const [verificationStatus, setVerificationStatus] = useState(user?.verification_status || 'unverified');
@@ -756,6 +760,8 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
         description: enhancedDescription,
         latitude: lat,
         longitude: lng,
+        injuries: selectedInjuries,
+        injury_description: injuryDescription,
       };
 
       let res;
@@ -1163,10 +1169,11 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
       <div className="resq-nav-scroll">
         {[
           { id: 'home', label: 'SOS DISPATCH', icon: '🚨' },
+          { id: 'injuries', label: 'INJURY MAPPING', icon: '🩺', badge: selectedInjuries.length > 0 ? `${selectedInjuries.length}` : null },
+          { id: 'tracking', label: 'LIVE RADAR', icon: '🗺️', badge: activeRequest ? 'ACTIVE' : null },
+          { id: 'medical', label: 'HEALTH PROFILE', icon: '📋' },
           { id: 'alerts', label: 'PUBLIC ALERTS', icon: '📢', badge: publicAlerts.length > 0 ? `${publicAlerts.length}` : null },
-          { id: 'medical', label: 'HEALTH PROFILE', icon: '🩺' },
-          { id: 'tracking', label: 'LIVE RADAR', icon: '🗺️' },
-          { id: 'history', label: 'HISTORY', icon: '📋' },
+          { id: 'history', label: 'HISTORY', icon: '🗂️' },
         ].map((t) => (
           <button
             key={t.id}
@@ -1385,6 +1392,18 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                   );
                 })}
               </div>
+            </div>
+
+            {/* 2. INTERACTIVE HUMAN BODY INJURY MAPPING (OPTIONAL) */}
+            <div>
+              <BodyInjuryMap
+                selectedInjuries={selectedInjuries}
+                onChange={setSelectedInjuries}
+                injuryDescription={injuryDescription}
+                onDescriptionChange={setInjuryDescription}
+                editable={!submitting}
+                showNotes={true}
+              />
             </div>
 
             {/* GPS Location & Media Details */}
@@ -1617,6 +1636,65 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
           </div>
         )}
 
+        {/* TAB: DEDICATED VISUAL HUMAN BODY INJURY MAPPING */}
+        {tab === 'injuries' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div className="glass-panel" style={{ padding: '16px 18px', background: 'radial-gradient(circle at top right, rgba(56,189,248,0.15), rgba(13,18,36,0.9))' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: '900', color: '#f8fafc', letterSpacing: '0.5px' }}>
+                    🩺 CITIZEN ANATOMICAL INJURY MAPPING
+                  </div>
+                  <p style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px', maxWidth: '640px', lineHeight: '1.4' }}>
+                    Tap or click the body regions below to mark where the injured person is hurt or experiencing pain. Selections will automatically attach to your emergency report.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTab('home')}
+                  className="tactical-btn"
+                  style={{
+                    background: 'linear-gradient(135deg, #f43f5e, #e11d48)',
+                    color: '#fff',
+                    padding: '8px 16px',
+                    fontSize: '12px',
+                    fontWeight: '900',
+                  }}
+                >
+                  🚨 TRANSMIT SOS ➔
+                </button>
+              </div>
+            </div>
+
+            <BodyInjuryMap
+              selectedInjuries={selectedInjuries}
+              onChange={setSelectedInjuries}
+              injuryDescription={injuryDescription}
+              onDescriptionChange={setInjuryDescription}
+              editable={!submitting}
+              showNotes={true}
+            />
+
+            <button
+              className="tactical-btn"
+              style={{
+                width: '100%',
+                padding: '16px',
+                fontSize: '14.5px',
+                fontWeight: '900',
+                letterSpacing: '0.8px',
+                background: 'linear-gradient(135deg, #0284c7, #0ea5e9)',
+                boxShadow: '0 4px 20px rgba(14,165,233,0.4)',
+                borderRadius: '10px',
+                cursor: 'pointer',
+              }}
+              onClick={() => setTab('home')}
+            >
+              🚨 PROCEED TO SOS DISPATCH ({selectedInjuries.length} INJURIES MARKED) ➔
+            </button>
+          </div>
+        )}
+
         {/* TAB 2: LIVE TRACKING & RADAR */}
         {tab === 'tracking' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1791,6 +1869,19 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                   )}
                 </div>
 
+                {/* Reported Injury Mapping Display */}
+                {((activeRequest.injuries && activeRequest.injuries.length > 0) || activeRequest.injury_description) && (
+                  <div style={{ marginTop: '4px' }}>
+                    <BodyInjuryMap
+                      selectedInjuries={activeRequest.injuries || []}
+                      injuryDescription={activeRequest.injury_description || ''}
+                      editable={false}
+                      showNotes={true}
+                      compact={true}
+                    />
+                  </div>
+                )}
+
                 {!['Completed', 'Cancelled'].includes(activeRequest.status) && (
                   <button
                     onClick={cancelRequest}
@@ -1818,23 +1909,59 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
               </div>
             ) : (
               myRequests.map((r) => (
-                <div key={r.id} className="glass-card" style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                        <EmergencyBadges incident={r} size="small" />
-                        <CriticalBadge size="small" />
+                <div key={r.id} className="glass-card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                          <EmergencyBadges incident={r} size="small" />
+                          <CriticalBadge size="small" />
+                        </div>
+                        <div className="mono-text" style={{ fontSize: '10px', color: '#64748b' }}>{new Date(r.createdAt).toLocaleString()}</div>
                       </div>
-                      <div className="mono-text" style={{ fontSize: '10px', color: '#64748b' }}>{new Date(r.createdAt).toLocaleString()}</div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {((r.injuries && r.injuries.length > 0) || r.injury_description) && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedHistoryId(expandedHistoryId === r.id ? null : r.id)}
+                          style={{
+                            background: 'rgba(56, 189, 248, 0.12)',
+                            border: '1px solid rgba(56, 189, 248, 0.35)',
+                            color: '#38bdf8',
+                            fontSize: '10px',
+                            fontWeight: '800',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          🩺 {r.injuries?.length || 0} INJURIES {expandedHistoryId === r.id ? '▲ HIDE' : '▼ VIEW'}
+                        </button>
+                      )}
+
+                      <span style={{
+                        fontSize: '9.5px', fontWeight: '800', padding: '3px 7px', borderRadius: '4px',
+                        background: 'rgba(255,255,255,0.06)', color: STATUS_COLOR[r.status] || '#cbd5e1'
+                      }}>
+                        {r.status.toUpperCase()}
+                      </span>
                     </div>
                   </div>
 
-                  <span style={{
-                    fontSize: '9.5px', fontWeight: '800', padding: '3px 7px', borderRadius: '4px',
-                    background: 'rgba(255,255,255,0.06)', color: STATUS_COLOR[r.status] || '#cbd5e1'
-                  }}>
-                    {r.status.toUpperCase()}
-                  </span>
+                  {/* Expanded Injury Model for Historical Record */}
+                  {expandedHistoryId === r.id && (
+                    <div style={{ marginTop: '6px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                      <BodyInjuryMap
+                        selectedInjuries={r.injuries || []}
+                        injuryDescription={r.injury_description || ''}
+                        editable={false}
+                        compact={true}
+                        showTitle={true}
+                      />
+                    </div>
+                  )}
                 </div>
               ))
             )}
