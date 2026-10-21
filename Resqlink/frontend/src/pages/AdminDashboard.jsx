@@ -1434,8 +1434,13 @@ export default function AdminDashboard({ user, onLogout }) {
   };
 
   const toggleUserActive = async (targetUser) => {
+    const newStatus = !targetUser.is_active;
+    if (!newStatus) {
+      if (!window.confirm(`Are you sure you want to deactivate the account for "${targetUser.email}"? This user will not be able to log in or receive dispatches.`)) {
+        return;
+      }
+    }
     try {
-      const newStatus = !targetUser.is_active;
       const res = await api.patch(`/admin/users/${targetUser.id}/active`, { is_active: newStatus });
       if (res.data.success) {
         setUsers((prev) => prev.map((u) => (u.id === targetUser.id ? { ...u, is_active: newStatus } : u)));
@@ -1447,6 +1452,15 @@ export default function AdminDashboard({ user, onLogout }) {
   };
 
   const toggleUserVerification = async (targetUser, newStatus) => {
+    if (newStatus === 'rejected') {
+      if (!window.confirm(`Are you sure you want to REJECT verification for "${targetUser.email}"?`)) {
+        return;
+      }
+    } else if (newStatus === 'unverified') {
+      if (!window.confirm(`Revoke verified status and reset "${targetUser.email}" to unverified?`)) {
+        return;
+      }
+    }
     try {
       const res = await api.patch(`/admin/users/${targetUser.id}/verification`, {
         is_verified: newStatus === 'approved',

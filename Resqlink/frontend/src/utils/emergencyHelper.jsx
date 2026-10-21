@@ -157,12 +157,12 @@ export function CriticalWarningLogo({ size = 46, style = {} }) {
 }
 
 export const EMERGENCY_STATUS_STEPS = [
-  { key: 'Pending', label: 'Pending', stepNum: 1, desc: 'Awaiting dispatcher review' },
-  { key: 'Accepted', label: 'Accepted', stepNum: 2, desc: 'Accepted by dispatch' },
-  { key: 'Responder Dispatched', label: 'Responder Dispatched', stepNum: 3, desc: 'Unit assigned and dispatched' },
-  { key: 'En Route', label: 'En Route', stepNum: 4, desc: 'Traveling to scene' },
-  { key: 'Arrived', label: 'Arrived', stepNum: 5, desc: 'At emergency scene' },
-  { key: 'Completed', label: 'Completed', stepNum: 6, desc: 'Response finished' },
+  { key: 'Pending', label: 'Pending', stepNum: 1, desc: 'Your report is awaiting review.' },
+  { key: 'Accepted', label: 'Accepted', stepNum: 2, desc: 'Your report has been accepted for handling.' },
+  { key: 'Responder Dispatched', label: 'Responder Dispatched', stepNum: 3, desc: 'A response unit has been assigned and dispatched.' },
+  { key: 'En Route', label: 'En Route', stepNum: 4, desc: 'The assigned responder is traveling to the incident.' },
+  { key: 'Arrived', label: 'Arrived', stepNum: 5, desc: 'The responder has arrived at the reported location.' },
+  { key: 'Completed', label: 'Completed', stepNum: 6, desc: 'The emergency response has been marked complete.' },
 ];
 
 export function getStatusStepIndex(status) {
@@ -285,7 +285,7 @@ export function EmergencyStatusTracker({ incident, currentStatus, compact = fals
           </span>
         </div>
         <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-          Current State: <b style={{ color: '#38bdf8' }}>{status.toUpperCase()}</b>
+          Current State: <b style={{ color: '#38bdf8' }}>{status.toUpperCase()}</b> • <span>{EMERGENCY_STATUS_STEPS[currentIndex]?.desc}</span>
         </div>
       </div>
 

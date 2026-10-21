@@ -1621,20 +1621,25 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
             )}
 
             {/* Big Emergency SOS Dispatch Action */}
-            <button
-              className="tactical-btn"
-              style={{
-                width: '100%', padding: '16px', fontSize: '15px', fontWeight: '900', letterSpacing: '0.8px',
-                background: submitting ? 'rgba(244,63,94,0.5)' : 'linear-gradient(135deg, #f43f5e, #e11d48)',
-                boxShadow: submitting ? 'none' : '0 4px 20px rgba(244,63,94,0.4)',
-                borderRadius: '10px',
-                cursor: submitting ? 'wait' : 'pointer'
-              }}
-              onClick={submitSOS}
-              disabled={submitting || photoUploading}
-            >
-              {submitting ? 'TRANSMITTING DISPATCH... PLEASE WAIT' : 'TRANSMIT EMERGENCY SOS'}
-            </button>
+            <div>
+              <button
+                className="tactical-btn"
+                style={{
+                  width: '100%', padding: '16px', fontSize: '15px', fontWeight: '900', letterSpacing: '0.8px',
+                  background: submitting ? 'rgba(244,63,94,0.5)' : 'linear-gradient(135deg, #f43f5e, #e11d48)',
+                  boxShadow: submitting ? 'none' : '0 4px 20px rgba(244,63,94,0.4)',
+                  borderRadius: '10px',
+                  cursor: submitting ? 'wait' : 'pointer'
+                }}
+                onClick={submitSOS}
+                disabled={submitting || photoUploading}
+              >
+                {submitting ? 'TRANSMITTING DISPATCH... PLEASE WAIT' : 'TRANSMIT EMERGENCY SOS'}
+              </button>
+              <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', marginTop: '6px' }}>
+                Transmitting directly alerts the local MDRRMO, Police (PNP), and Fire (BFP) dispatch command for immediate response.
+              </div>
+            </div>
           </div>
         )}
 
