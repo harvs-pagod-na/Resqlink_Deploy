@@ -60,7 +60,14 @@ export default function App() {
         background: 'linear-gradient(135deg, #0b0f19 0%, #111827 50%, #1a0a0a 100%)',
         gap: '20px'
       }}>
-        <div style={{ fontSize: '36px' }}>🚨</div>
+        <div style={{
+          width: '42px', height: '42px', borderRadius: '50%',
+          background: 'rgba(239, 68, 68, 0.15)', border: '2px solid #ef4444',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 0 16px rgba(239, 68, 68, 0.4)'
+        }}>
+          <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: '#ef4444' }} />
+        </div>
         <div style={{
           color: '#ef4444', fontFamily: "'Plus Jakarta Sans', sans-serif",
           fontSize: '22px', fontWeight: '800', letterSpacing: '2px'

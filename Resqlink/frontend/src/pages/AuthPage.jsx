@@ -2,17 +2,6 @@ import React, { useState } from 'react';
 import api from '../api';
 import { PAMPANGA_BARANGAYS_MAP } from '../data/PampangaData';
 
-const ICONS = {
-  shield: '🛡️',
-  user: '👤',
-  lock: '🔒',
-  mail: '📧',
-  phone: '📞',
-  eye: '👁',
-  eyeOff: '🙈',
-  alert: '🚨',
-};
-
 export default function AuthPage({ onLoginSuccess }) {
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [form, setForm] = useState({
@@ -364,7 +353,7 @@ export default function AuthPage({ onLoginSuccess }) {
       <div className="auth-card">
         {/* Logo Section */}
         <div className="logo-section">
-          <div className="logo-badge">🚨</div>
+          <div className="logo-badge" style={{ fontSize: '14px', fontWeight: '900', letterSpacing: '1px' }}>RQ</div>
           <div className="brand-name">RESQLINK</div>
           <div className="brand-subtitle">TRI-MUNICIPALITY EMERGENCY COMMAND</div>
         </div>
@@ -382,8 +371,8 @@ export default function AuthPage({ onLoginSuccess }) {
         </div>
 
         {/* Alerts */}
-        {error && <div className="alert-box alert-error">⚠️ {error}</div>}
-        {success && <div className="alert-box alert-success">✅ {success}</div>}
+        {error && <div className="alert-box alert-error">{error}</div>}
+        {success && <div className="alert-box alert-success">{success}</div>}
 
         {mode === 'login' ? (
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -398,11 +387,11 @@ export default function AuthPage({ onLoginSuccess }) {
               <div className="input-wrapper">
                 <input className="auth-input" type={showPass ? 'text' : 'password'} placeholder="••••••••"
                   value={form.password} onChange={e => set('password', e.target.value)} required />
-                <button type="button" onClick={() => setShowPass(!showPass)} style={{
+                <button type="button" onClick={() => setShowPass(!showPass)} aria-label={showPass ? 'Hide password' : 'Show password'} style={{
                   position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-                  background: 'none', border: 'none', cursor: 'pointer', fontSize: '15px', color: '#64748b'
+                  background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: '800', color: '#94a3b8'
                 }}>
-                  {showPass ? '🙈' : '👁️'}
+                  {showPass ? 'HIDE' : 'SHOW'}
                 </button>
               </div>
             </div>
@@ -420,18 +409,16 @@ export default function AuthPage({ onLoginSuccess }) {
                   className={`role-card ${form.role === 'user' ? 'active' : ''}`}
                   onClick={() => set('role', 'user')}
                 >
-                  <div style={{ fontSize: '20px' }}>🙋</div>
                   <div className="role-card-title">Citizen</div>
-                  <div style={{ fontSize: '9.5px', color: '#10b981', fontWeight: '700', marginTop: '2px' }}>⚡ Instant SOS Access</div>
+                  <div style={{ fontSize: '9.5px', color: '#10b981', fontWeight: '700', marginTop: '2px' }}>Instant SOS Access</div>
                 </div>
 
                 <div
                   className={`role-card ${form.role === 'responder' ? 'active' : ''}`}
                   onClick={() => set('role', 'responder')}
                 >
-                  <div style={{ fontSize: '20px' }}>🚑</div>
                   <div className="role-card-title">Field Responder</div>
-                  <div style={{ fontSize: '9.5px', color: '#f59e0b', fontWeight: '700', marginTop: '2px' }}>🛡️ MDRRMO Vetted</div>
+                  <div style={{ fontSize: '9.5px', color: '#f59e0b', fontWeight: '700', marginTop: '2px' }}>MDRRMO Vetted</div>
                 </div>
               </div>
             </div>
@@ -502,7 +489,7 @@ export default function AuthPage({ onLoginSuccess }) {
                 marginBottom: '14px'
               }}>
                 <div style={{ fontSize: '11px', fontWeight: '800', color: '#f59e0b', marginBottom: '8px' }}>
-                  🛡️ MDRRMO UNIT CREDENTIALS
+                  MDRRMO UNIT CREDENTIALS
                 </div>
                 <div className="auth-grid-2">
                   <div>

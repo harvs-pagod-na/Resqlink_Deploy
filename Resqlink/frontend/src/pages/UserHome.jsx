@@ -21,7 +21,7 @@ const userPin = L.divIcon({
   className: '',
   html: `<div style="position:relative;width:38px;height:38px;display:flex;align-items:center;justify-content:center;">
     <div style="position:absolute;width:100%;height:100%;border-radius:50%;background:rgba(244,63,94,0.35);animation:resqPulse 1.6s infinite;"></div>
-    <div style="width:28px;height:28px;border-radius:50%;background:#f43f5e;border:2.5px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 4px 14px rgba(244,63,94,0.6);">🆘</div>
+    <div style="width:28px;height:28px;border-radius:50%;background:#f43f5e;border:2.5px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;box-shadow:0 4px 14px rgba(244,63,94,0.6);">SOS</div>
   </div>`,
   iconSize: [38, 38],
   iconAnchor: [19, 19],
@@ -32,7 +32,7 @@ const responderPin = L.divIcon({
   className: '',
   html: `<div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
     <div style="position:absolute;width:100%;height:100%;border-radius:50%;background:rgba(14,165,233,0.4);animation:resqPulse 1.8s infinite;"></div>
-    <div style="width:30px;height:30px;border-radius:50%;background:#0ea5e9;border:2.5px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 4px 14px rgba(14,165,233,0.7);">⚡</div>
+    <div style="width:30px;height:30px;border-radius:50%;background:#0ea5e9;border:2.5px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;box-shadow:0 4px 14px rgba(14,165,233,0.7);">RESQ</div>
   </div>`,
   iconSize: [40, 40],
   iconAnchor: [20, 20],
@@ -53,13 +53,13 @@ const STATUS_COLOR = {
 };
 
 const EMERGENCY_TYPES = [
-  { id: 'Medical', label: 'MEDICAL', icon: '🚑', color: '#f43f5e' },
-  { id: 'Fire', label: 'FIRE', icon: '🔥', color: '#f97316' },
-  { id: 'Flood/Disaster', label: 'FLOOD / DISASTER', icon: '🌊', color: '#0ea5e9' },
-  { id: 'Crime/Police', label: 'POLICE / CRIME', icon: '🚔', color: '#818cf8' },
-  { id: 'Accident', label: 'ACCIDENT', icon: '🚗', color: '#f59e0b' },
-  { id: 'Evacuation', label: 'EVACUATION', icon: '🏃', color: '#10b981' },
-  { id: 'Other', label: 'OTHER', icon: '⚠️', color: '#94a3b8' },
+  { id: 'Medical', label: 'MEDICAL', color: '#f43f5e' },
+  { id: 'Fire', label: 'FIRE', color: '#f97316' },
+  { id: 'Flood/Disaster', label: 'FLOOD / DISASTER', color: '#0ea5e9' },
+  { id: 'Crime/Police', label: 'POLICE / CRIME', color: '#818cf8' },
+  { id: 'Accident', label: 'ACCIDENT', color: '#f59e0b' },
+  { id: 'Evacuation', label: 'EVACUATION', color: '#10b981' },
+  { id: 'Other', label: 'OTHER', color: '#94a3b8' },
 ];
 
 const SEVERITY = [
@@ -278,7 +278,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
         setVerificationSuccessMsg(
           'Identity verification submitted successfully! Your submission is PENDING SUPER ADMIN REVIEW. Your account is not silently approved. Your Emergency SOS button remains active.'
         );
-        showNotification('🛡️ Verification submitted for Super Admin review!', 'success');
+        showNotification('Verification submitted for Super Admin review.', 'success');
         await fetchVerificationStatus();
         setTimeout(() => {
           setShowVerificationModal(false);
@@ -352,7 +352,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
     setSelectedBarangay(defaultBrgy);
     const center = RESQLINK_TOWN_CENTERS[town] || { lat: 15.0689, lng: 120.5400 };
     setUserLocation(center);
-    showNotification(`📍 Set to ${town} Operations Center`, 'info');
+    showNotification(`Set to ${town} Operations Center.`, 'info');
   };
 
   // Switch Barangay Handler
@@ -361,7 +361,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
     const coords = RESQLINK_BARANGAY_COORDS[selectedTown]?.[brgy] || geocodePampangaAddress(selectedTown, brgy);
     if (coords) {
       setUserLocation(coords);
-      showNotification(`📍 Pinned to Brgy. ${brgy}, ${selectedTown}`, 'info');
+      showNotification(`Pinned to Brgy. ${brgy}, ${selectedTown}.`, 'info');
     }
   };
 
@@ -385,7 +385,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
     try {
       const res = await api.put('/profile/me', medicalForm);
       if (res.data?.success) {
-        showNotification('🩺 Health & Safety Profile saved successfully!', 'success');
+        showNotification('Health & Safety Profile saved successfully.', 'success');
       }
     } catch (err) {
       showNotification('Failed to save profile updates.', 'error');
@@ -493,7 +493,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
 
     sock.on('alert:broadcast', (newAlert) => {
       setPublicAlerts((prev) => [newAlert, ...prev.filter((a) => a.id !== newAlert.id)]);
-      showNotification(`🚨 MDRRMO PUBLIC WARNING: ${newAlert.title}`, 'alert');
+      showNotification(`MDRRMO Public Warning: ${newAlert.title}`, 'alert');
     });
 
     sock.on('alert:status_change', (updated) => {
@@ -526,7 +526,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
     sock.on('subadmin_confirmed_assignment', (data) => {
       const sectorName = data.assigned_sector || 'Municipal Dispatch';
       showNotification(
-        `✓ DISPATCH CONFIRMED: ${sectorName} Command confirmed your emergency assignment! Preparing deployment.`,
+        `Dispatch Confirmed: ${sectorName} Command confirmed emergency assignment. Preparing deployment.`,
         'success'
       );
       setActiveRequest((prev) => {
@@ -548,18 +548,18 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
       const rid = data.id || data?.dataValues?.id;
       if (activeRequest && (activeRequest.id === rid || data.user_id === user.id)) {
         if (['Completed', 'Cancelled', 'Resolved'].includes(data.status)) {
-          showNotification(`✓ Emergency #${rid} marked as COMPLETED and safely resolved!`, 'success');
+          showNotification(`Emergency #${rid} marked as completed and safely resolved.`, 'success');
         } else if (data.status === 'Responder Dispatched') {
-          showNotification(`🚨 RESCUER DISPATCHED: Unit ${data.responder_name || data.responder_unit || 'Alpha'} is rolling out to your location!`, 'alert');
+          showNotification(`Rescuer Dispatched: Unit ${data.responder_name || data.responder_unit || 'Alpha'} is deploying to your location.`, 'alert');
         } else if (data.status === 'En Route') {
-          showNotification(`🚀 RESPONDER EN ROUTE: Your rescue team is now heading to your location!`, 'alert');
+          showNotification(`Responder En Route: Rescue team is traveling to your location.`, 'alert');
         } else if (data.status === 'Arrived') {
-          showNotification(`📍 RESPONDER ARRIVED: The rescue unit has reached your location!`, 'success');
+          showNotification(`Responder Arrived: Rescue unit reached your location.`, 'success');
         } else if (data.status === 'Assigned') {
           const sec = data.assigned_sector ? ` (${data.assigned_sector} Sector)` : '';
-          showNotification(`⏳ Emergency assigned to ${data.assigned_department || 'Rescue Services'}${sec}. Awaiting sub-admin confirmation.`, 'info');
+          showNotification(`Emergency assigned to ${data.assigned_department || 'Rescue Services'}${sec}. Awaiting sub-admin confirmation.`, 'info');
         } else if (data.status === 'Accepted') {
-          showNotification(`✓ Responder ${data.responder_name || 'Unit'} accepted your rescue request!`, 'info');
+          showNotification(`Responder ${data.responder_name || 'Unit'} accepted your rescue request.`, 'info');
         } else {
           showNotification(`Incident Status: ${data.status.toUpperCase()}`, 'info');
         }
@@ -572,23 +572,23 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
     });
 
     sock.on('responder_dispatched', (data) => {
-      showNotification(`🚨 OFFICIAL DISPATCH: Unit ${data.responder_name || data.responder_unit || 'Alpha'} dispatched to your location!`, 'alert');
+      showNotification(`Official Dispatch: Unit ${data.responder_name || data.responder_unit || 'Alpha'} dispatched to your location.`, 'alert');
       setActiveRequest((prev) => (prev && prev.id === data.id ? { ...prev, ...data } : prev));
       setTab('tracking');
     });
 
     sock.on('responder_en_route', (data) => {
-      showNotification(`🚀 RESPONDER EN ROUTE: Your rescue unit is on the way!`, 'alert');
+      showNotification(`Responder En Route: Rescue unit is on the way.`, 'alert');
       setActiveRequest((prev) => (prev && prev.id === data.id ? { ...prev, ...data } : prev));
     });
 
     sock.on('responder_arrived', (data) => {
-      showNotification(`📍 RESPONDER ARRIVED: Rescue unit reached your location!`, 'success');
+      showNotification(`Responder Arrived: Rescue unit reached your location.`, 'success');
       setActiveRequest((prev) => (prev && prev.id === data.id ? { ...prev, ...data } : prev));
     });
 
     sock.on('rescue_completed', (data) => {
-      showNotification(`✓ Emergency resolved and completed! Transferred to history.`, 'success');
+      showNotification(`Emergency resolved and completed. Transferred to history.`, 'success');
       setActiveRequest((prev) => (prev && prev.id === data.id ? { ...prev, ...data } : prev));
     });
   };
@@ -640,14 +640,14 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
             setSelectedTown(detected.town);
             if (detected.barangay) setSelectedBarangay(detected.barangay);
           }
-          if (notify) showNotification(`📍 GPS Locked: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)} (${detected.town})`, 'success');
+          if (notify) showNotification(`GPS Locked: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)} (${detected.town})`, 'success');
         },
         async (err) => {
           console.warn('[GPS Hardware Warning]:', err.message);
           const fallback = RESQLINK_TOWN_CENTERS[selectedTown] || { lat: 15.0689, lng: 120.5400 };
           setUserLocation(fallback);
           setGettingGps(false);
-          if (notify) showNotification(`📍 Positioned at ${selectedTown} Center.`, 'info');
+          if (notify) showNotification(`Positioned at ${selectedTown} Center.`, 'info');
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       );
@@ -673,7 +673,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
       if (res.data?.success) {
         const pUrl = res.data.data.publicUrl;
         setSosForm((f) => ({ ...f, photo_url: pUrl }));
-        showNotification('📸 Incident photo attached successfully!', 'success');
+        showNotification('Incident photo attached successfully.', 'success');
       }
     } catch (err) {
       console.error('[Media Upload Error]:', err);
@@ -684,10 +684,17 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
   };
 
   const submitSOS = async () => {
-    if (!userLocation || !userLocation.lat || !userLocation.lng) {
-      const msg = 'Please allow GPS or select your municipality/barangay on the map.';
+    if (!selectedEmergencyTypes || selectedEmergencyTypes.length === 0) {
+      const msg = 'Please select at least one emergency category (e.g. Medical, Fire, Police) before transmitting.';
       setError(msg);
-      showNotification(`⚠️ ${msg}`, 'error');
+      showNotification(msg, 'error');
+      return;
+    }
+
+    if (!userLocation || !userLocation.lat || !userLocation.lng) {
+      const msg = 'Emergency coordinates are required. Please auto-lock GPS or select your location on the map.';
+      setError(msg);
+      showNotification(msg, 'error');
       return;
     }
 
@@ -798,11 +805,11 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
         if (socketRef.current) {
           socketRef.current.emit('join_resq_room', res.data.request.id);
         }
-        showNotification('🚨 EMERGENCY DISPATCH TRANSMITTED TO CENTRAL COMMAND!', 'success');
+        showNotification('Emergency dispatch transmitted to Central Command.', 'success');
       } else {
         const failMsg = res.data?.message || 'Emergency dispatch failed. Please retry.';
         setError(failMsg);
-        showNotification(`⚠️ ${failMsg}`, 'error');
+        showNotification(failMsg, 'error');
       }
     } catch (err) {
       console.error('[SOS TRANSMISSION ERROR]:', err);
@@ -811,7 +818,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
         ? 'Transmission timed out. Signal weak — please tap to retry transmitting.'
         : (err.response?.data?.message || err.message || 'Emergency dispatch failed. Please retry.');
       setError(errMsg);
-      showNotification(`⚠️ ${errMsg}`, 'error');
+      showNotification(errMsg, 'error');
     } finally {
       clearTimeout(safetyTimer);
       setSubmitting(false);
@@ -1149,10 +1156,10 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
             title={isVerified ? 'Verified Citizen Account' : 'Click to complete or review identity verification'}
           >
             {isVerified
-              ? 'VERIFIED 🛡️'
+              ? 'VERIFIED'
               : (verificationStatus === 'pending_admin'
-                ? 'PENDING REVIEW ⏳'
-                : (verificationStatus === 'rejected' ? 'ACTION NEEDED ❌' : 'VERIFY ID ⚠️'))}
+                ? 'PENDING REVIEW'
+                : (verificationStatus === 'rejected' ? 'ACTION NEEDED' : 'VERIFY ID'))}
           </button>
 
           <button onClick={onLogout} style={{
@@ -1168,12 +1175,12 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
       {/* NAVIGATION PILLS */}
       <div className="resq-nav-scroll">
         {[
-          { id: 'home', label: 'SOS DISPATCH', icon: '🚨' },
-          { id: 'injuries', label: 'INJURY MAPPING', icon: '🩺', badge: selectedInjuries.length > 0 ? `${selectedInjuries.length}` : null },
-          { id: 'tracking', label: 'LIVE RADAR', icon: '🗺️', badge: activeRequest ? 'ACTIVE' : null },
-          { id: 'medical', label: 'HEALTH PROFILE', icon: '📋' },
-          { id: 'alerts', label: 'PUBLIC ALERTS', icon: '📢', badge: publicAlerts.length > 0 ? `${publicAlerts.length}` : null },
-          { id: 'history', label: 'HISTORY', icon: '🗂️' },
+          { id: 'home', label: 'SOS DISPATCH' },
+          { id: 'injuries', label: 'INJURY MAPPING', badge: selectedInjuries.length > 0 ? `${selectedInjuries.length}` : null },
+          { id: 'tracking', label: 'LIVE RADAR', badge: activeRequest ? 'ACTIVE' : null },
+          { id: 'medical', label: 'HEALTH PROFILE' },
+          { id: 'alerts', label: 'PUBLIC ALERTS', badge: publicAlerts.length > 0 ? `${publicAlerts.length}` : null },
+          { id: 'history', label: 'HISTORY' },
         ].map((t) => (
           <button
             key={t.id}
@@ -1181,7 +1188,6 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
             onClick={() => setTab(t.id)}
             style={{ position: 'relative' }}
           >
-            <span>{t.icon}</span>
             <span>{t.label}</span>
             {t.badge && (
               <span style={{
@@ -1221,16 +1227,6 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
             backdropFilter: 'blur(8px)',
           }}>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', flex: 1 }}>
-              <div style={{
-                fontSize: '22px',
-                lineHeight: 1,
-                padding: '6px',
-                borderRadius: '8px',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.06)'
-              }}>
-                {verificationStatus === 'pending_admin' ? '⏳' : (verificationStatus === 'rejected' ? '❌' : '🛡️')}
-              </div>
               <div style={{ flex: 1 }}>
                 <div style={{
                   fontSize: '13px',
@@ -1295,7 +1291,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                         cursor: 'pointer',
                       }}
                     >
-                      View Submission Details 📋
+                      View Submission Details
                     </button>
                   )}
                   <button
@@ -1359,7 +1355,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
             {/* Emergency Category Selector */}
             <div className="glass-panel" style={{ padding: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
-                <label className="form-label" style={{ margin: 0 }}>1. SELECT EMERGENCY CATEGORY</label>
+                <label className="form-label" style={{ margin: 0 }}>STEP 1: SELECT EMERGENCY CATEGORY (REQUIRED)</label>
                 {selectedEmergencyTypes.length > 1 && (
                   <span style={{ fontSize: '11px', color: '#f43f5e', fontWeight: '800', background: 'rgba(244,63,94,0.12)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(244,63,94,0.3)' }}>
                     {selectedEmergencyTypes.length} Selected
@@ -1386,8 +1382,12 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                         boxSizing: 'border-box'
                       }}
                     >
-                      <div style={{ fontSize: '22px' }}>{t.icon}</div>
-                      <div style={{ fontSize: '10.5px', fontWeight: '800', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.label}</div>
+                      <div style={{
+                        width: '10px', height: '10px', borderRadius: '50%',
+                        background: t.color, margin: '0 auto 6px',
+                        boxShadow: isSel ? `0 0 8px ${t.color}` : 'none'
+                      }} />
+                      <div style={{ fontSize: '11px', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.label}</div>
                     </button>
                   );
                 })}
@@ -1396,6 +1396,10 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
 
             {/* 2. INTERACTIVE HUMAN BODY INJURY MAPPING (OPTIONAL) */}
             <div>
+              <div style={{ marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label className="form-label" style={{ color: '#38bdf8' }}>STEP 2: INJURY & PAIN MAPPING (OPTIONAL)</label>
+                <span style={{ fontSize: '10.5px', color: '#64748b' }}>Does not delay emergency transmission</span>
+              </div>
               <BodyInjuryMap
                 selectedInjuries={selectedInjuries}
                 onChange={setSelectedInjuries}
@@ -1409,7 +1413,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
             {/* GPS Location & Media Details */}
             <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
-                <label className="form-label">2. SITUATION OVERVIEW / INJURY DETAILS</label>
+                <label className="form-label">STEP 3: SITUATION OVERVIEW & NOTES (OPTIONAL)</label>
                 <textarea
                   className="tactical-input"
                   rows={2}
@@ -1425,7 +1429,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '4px' }}>
                   <div>
                     <label className="form-label" style={{ color: '#f43f5e', fontWeight: '800' }}>
-                      3. CHOOSE NEAREST EMERGENCY HUB (PORAC • SANTA RITA • GUAGUA)
+                      STEP 4: EMERGENCY LOCATION & HUB (REQUIRED)
                     </label>
                     <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>
                       Your SOS will be received directly by the selected hub's emergency command desk.
@@ -1439,9 +1443,9 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                 {/* 3 Dedicated Town Selector Cards */}
                 <div className="resq-muni-grid">
                   {[
-                    { id: 'Porac', label: 'PORAC', icon: '🏛️', color: '#c084fc', count: '22 Brgys' },
-                    { id: 'Santa Rita', label: 'STA. RITA', icon: '🏛️', color: '#38bdf8', count: '10 Brgys' },
-                    { id: 'Guagua', label: 'GUAGUA', icon: '🏛️', color: '#34d399', count: '31 Brgys' },
+                    { id: 'Porac', label: 'PORAC', color: '#c084fc', count: '22 Brgys' },
+                    { id: 'Santa Rita', label: 'STA. RITA', color: '#38bdf8', count: '10 Brgys' },
+                    { id: 'Guagua', label: 'GUAGUA', color: '#34d399', count: '31 Brgys' },
                   ].map((t) => {
                     const isSel = selectedTown === t.id;
                     return (
@@ -1461,9 +1465,8 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                           boxSizing: 'border-box'
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                          <span style={{ fontSize: '14px' }}>{t.icon}</span>
-                          <span style={{ fontSize: '11px', fontWeight: '900', color: isSel ? t.color : '#f8fafc', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: '11.5px', fontWeight: '900', color: isSel ? t.color : '#f8fafc', whiteSpace: 'nowrap' }}>
                             {t.label}
                           </span>
                         </div>
@@ -1494,7 +1497,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                   </div>
 
                   <div>
-                    <label className="form-label" style={{ display: 'block', marginBottom: '4px' }}>STREET / SITIO / LANDMARK</label>
+                    <label className="form-label" style={{ display: 'block', marginBottom: '4px' }}>STREET / SITIO / LANDMARK (OPTIONAL)</label>
                     <input
                       className="tactical-input"
                       placeholder="e.g. Near San Basilio Chapel, Block 4..."
@@ -1513,7 +1516,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                     onClick={() => getGPS(true)}
                     disabled={gettingGps}
                   >
-                    {gettingGps ? 'LOCATING...' : '📍 AUTO-LOCK GPS'}
+                    {gettingGps ? 'LOCATING...' : 'AUTO-LOCK GPS'}
                   </button>
                 </div>
 
@@ -1542,7 +1545,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                               setSelectedTown(detected.town);
                               if (detected.barangay) setSelectedBarangay(detected.barangay);
                             }
-                            showNotification(`📍 Pinned to: ${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)} (${detected.town})`, 'success');
+                            showNotification(`Pinned to: ${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)} (${detected.town})`, 'success');
                           }
                         }}
                         position={[userLocation.lat, userLocation.lng]}
@@ -1558,13 +1561,13 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                   )}
                 </div>
                 <div className="mono-text" style={{ fontSize: '9.5px', color: '#38bdf8', marginTop: '6px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
-                  <span>💡 Hint: I-drag ang 🆘 marker sa eksaktong bahay mo!</span>
+                  <span>Note: You can drag the marker on the map to pinpoint your exact location.</span>
                   <span>GPS: {userLocation ? `${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}` : 'N/A'}</span>
                 </div>
               </div>
 
               <div>
-                <label className="form-label">4. INCIDENT MEDIA ATTACHMENT</label>
+                <label className="form-label">STEP 5: INCIDENT PHOTO (OPTIONAL)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
                   <input
                     type="file"
@@ -1613,7 +1616,6 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                 alignItems: 'center',
                 gap: '8px'
               }}>
-                <span style={{ fontSize: '16px' }}>⚠️</span>
                 <span>{error}</span>
               </div>
             )}
@@ -1631,7 +1633,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
               onClick={submitSOS}
               disabled={submitting || photoUploading}
             >
-              {submitting ? '⏳ TRANSMITTING DISPATCH... (PLEASE WAIT)' : '🚨 TRANSMIT EMERGENCY SOS'}
+              {submitting ? 'TRANSMITTING DISPATCH... PLEASE WAIT' : 'TRANSMIT EMERGENCY SOS'}
             </button>
           </div>
         )}
@@ -1643,7 +1645,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                 <div>
                   <div style={{ fontSize: '16px', fontWeight: '900', color: '#f8fafc', letterSpacing: '0.5px' }}>
-                    🩺 CITIZEN ANATOMICAL INJURY MAPPING
+                    CITIZEN ANATOMICAL INJURY MAPPING
                   </div>
                   <p style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px', maxWidth: '640px', lineHeight: '1.4' }}>
                     Tap or click the body regions below to mark where the injured person is hurt or experiencing pain. Selections will automatically attach to your emergency report.
@@ -1661,7 +1663,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                     fontWeight: '900',
                   }}
                 >
-                  🚨 TRANSMIT SOS ➔
+                  TRANSMIT SOS ➔
                 </button>
               </div>
             </div>
@@ -1690,7 +1692,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
               }}
               onClick={() => setTab('home')}
             >
-              🚨 PROCEED TO SOS DISPATCH ({selectedInjuries.length} INJURIES MARKED) ➔
+              PROCEED TO SOS DISPATCH ({selectedInjuries.length} INJURIES MARKED) ➔
             </button>
           </div>
         )}
@@ -1701,7 +1703,6 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
             
             {!activeRequest ? (
               <div className="glass-panel" style={{ textAlign: 'center', padding: '50px 20px', color: '#64748b' }}>
-                <span style={{ fontSize: '36px' }}>🗺️</span>
                 <div style={{ fontSize: '14px', fontWeight: '800', marginTop: '8px', color: '#f8fafc' }}>
                   NO ACTIVE EMERGENCY INCIDENT
                 </div>
@@ -1732,17 +1733,17 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
 
                   {/* Contextual Guidance Message */}
                   <div style={{ marginTop: '10px', fontSize: '11.5px', color: '#cbd5e1', background: 'rgba(0,0,0,0.35)', padding: '8px 12px', borderRadius: '6px' }}>
-                    {activeRequest.status === 'Pending' && `📡 Transmitted to ${activeRequest.municipality || 'Central'} Emergency Hub HQ — Reviewing incident...`}
+                    {activeRequest.status === 'Pending' && `Transmitted to ${activeRequest.municipality || 'Central'} Emergency Hub HQ — Reviewing incident details...`}
                     {activeRequest.status === 'Assigned' && (
                       activeRequest.subadmin_confirmed_at
-                        ? `✓ Confirmed by ${activeRequest.assigned_sector || 'Municipal'} Sub-Admin Dispatcher at ${new Date(activeRequest.subadmin_confirmed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Preparing rescue unit rollout.`
-                        : `⏳ Assigned to ${activeRequest.assigned_sector || activeRequest.municipality || 'Municipal'} Sector Command — Awaiting Sub-Admin Confirmation...`
+                        ? `Confirmed by ${activeRequest.assigned_sector || 'Municipal'} Sub-Admin Dispatcher at ${new Date(activeRequest.subadmin_confirmed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Preparing rescue unit rollout.`
+                        : `Assigned to ${activeRequest.assigned_sector || activeRequest.municipality || 'Municipal'} Sector Command — Awaiting Sub-Admin Confirmation...`
                     )}
-                    {activeRequest.status === 'Accepted' && `✓ Responder ${activeRequest.responder_name || 'Unit'} accepted mission — Awaiting final dispatch order...`}
-                    {activeRequest.status === 'Responder Dispatched' && `⚡ Response Unit dispatched! Vehicle preparing for rollout.`}
-                    {activeRequest.status === 'En Route' && `🚀 Responder is en route to your location with real-time GPS telemetry!`}
-                    {(activeRequest.status === 'Arrived' || activeRequest.status === 'On Scene') && `📍 Responder has arrived on scene at your location.`}
-                    {(activeRequest.status === 'Completed' || activeRequest.status === 'Resolved') && `✓ Emergency operation completed successfully and archived.`}
+                    {activeRequest.status === 'Accepted' && `Responder ${activeRequest.responder_name || 'Unit'} accepted mission — Awaiting final dispatch order...`}
+                    {activeRequest.status === 'Responder Dispatched' && `Response Unit dispatched! Vehicle preparing for rollout.`}
+                    {activeRequest.status === 'En Route' && `Responder is en route to your location with real-time GPS telemetry.`}
+                    {(activeRequest.status === 'Arrived' || activeRequest.status === 'On Scene') && `Responder has arrived on scene at your location.`}
+                    {(activeRequest.status === 'Completed' || activeRequest.status === 'Resolved') && `Emergency operation completed successfully and archived.`}
                   </div>
                 </div>
 
@@ -1773,7 +1774,6 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                 {/* Assigned Vehicle Header Banner */}
                 <div className="glass-panel" style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.25)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '18px' }}>⚡</span>
                     <div>
                       <div style={{ fontSize: '11.5px', fontWeight: '800', color: '#38bdf8' }}>
                         {activeRequest.responder_unit || 'MDRRMO Santa Rita Unit-01'}
@@ -1785,9 +1785,9 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                         <div style={{ fontSize: '9.5px', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <span style={{ color: '#c084fc', fontWeight: '700' }}>Sector: {activeRequest.assigned_sector}</span>
                           {activeRequest.subadmin_confirmed_at ? (
-                            <span style={{ color: '#10b981', fontWeight: '800' }}>• Sub-Admin Confirmed ✓</span>
+                            <span style={{ color: '#10b981', fontWeight: '800' }}>• Sub-Admin Confirmed</span>
                           ) : (
-                            <span style={{ color: '#f59e0b', fontWeight: '700' }}>• Awaiting Sub-Admin Confirm ⏳</span>
+                            <span style={{ color: '#f59e0b', fontWeight: '700' }}>• Awaiting Sub-Admin Confirmation</span>
                           )}
                         </div>
                       )}
@@ -1799,7 +1799,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                     color: activeRequest.status === 'Arrived' ? '#10b981' : activeRequest.status === 'Assigned' ? '#c084fc' : '#38bdf8',
                     border: `1px solid ${activeRequest.status === 'Arrived' ? '#10b981' : activeRequest.status === 'Assigned' ? '#c084fc' : '#38bdf8'}`
                   }}>
-                    {activeRequest.status === 'Arrived' ? 'ON SCENE ✓' : activeRequest.status === 'Assigned' ? (activeRequest.subadmin_confirmed_at ? 'CONFIRMED ✓' : 'ASSIGNED ⏳') : 'EN ROUTE 🚨'}
+                    {activeRequest.status === 'Arrived' ? 'ON SCENE' : activeRequest.status === 'Assigned' ? (activeRequest.subadmin_confirmed_at ? 'CONFIRMED' : 'ASSIGNED') : 'EN ROUTE'}
                   </span>
                 </div>
 
@@ -1829,7 +1829,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                       {responderLocation && (
                         <Marker position={[responderLocation.lat, responderLocation.lng]} icon={responderPin}>
                           <Popup>
-                            <b>⚡ {activeRequest.responder_unit || 'MDRRMO Unit-01'}</b><br />
+                            <b>{activeRequest.responder_unit || 'MDRRMO Unit-01'}</b><br />
                             Status: {activeRequest.status}
                           </Popup>
                         </Marker>
@@ -1937,7 +1937,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                             cursor: 'pointer',
                           }}
                         >
-                          🩺 {r.injuries?.length || 0} INJURIES {expandedHistoryId === r.id ? '▲ HIDE' : '▼ VIEW'}
+                          {r.injuries?.length || 0} INJURIES {expandedHistoryId === r.id ? '[HIDE]' : '[VIEW]'}
                         </button>
                       )}
 
@@ -1974,7 +1974,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: '900', color: '#f8fafc' }}>
-                  🩺 EMERGENCY HEALTH PROFILE
+                  EMERGENCY HEALTH PROFILE
                 </div>
                 <p style={{ color: '#94a3b8', fontSize: '11.5px', marginTop: '3px' }}>
                   Telemetry transmitted to responders during active SOS calls.
@@ -2125,7 +2125,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
               </div>
 
               <button className="tactical-btn" type="submit" disabled={savingMedical} style={{ marginTop: '4px' }}>
-                {savingMedical ? 'SAVING...' : '💾 SAVE HEALTH & SAFETY PROFILE'}
+                {savingMedical ? 'SAVING...' : 'SAVE HEALTH & SAFETY PROFILE'}
               </button>
             </form>
           </div>
@@ -2138,7 +2138,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                 <div>
                   <div style={{ fontSize: '16px', fontWeight: '900', color: '#f8fafc' }}>
-                    📢 MDRRMO EMERGENCY ALERTS
+                    MDRRMO EMERGENCY ALERTS
                   </div>
                   <p style={{ color: '#94a3b8', fontSize: '11.5px', marginTop: '3px' }}>
                     Real-time disaster warnings for Porac, Santa Rita, and Guagua.
@@ -2152,7 +2152,6 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
 
             {publicAlerts.length === 0 ? (
               <div className="glass-panel" style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
-                <div style={{ fontSize: '28px', marginBottom: '6px' }}>🛡️</div>
                 <div style={{ fontWeight: '700', fontSize: '13px', color: '#94a3b8' }}>NO ACTIVE EMERGENCY WARNINGS</div>
                 <div style={{ fontSize: '11.5px', marginTop: '4px' }}>All sectors are currently under normal operating status.</div>
               </div>
@@ -2171,8 +2170,13 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '20px' }}>
-                          {alt.alert_type?.includes('Fire') ? '🔥' : alt.alert_type?.includes('Flood') || alt.alert_type?.includes('Typhoon') ? '🌊' : alt.alert_type?.includes('Road') ? '🚧' : '⚠️'}
+                        <span style={{
+                          padding: '2px 8px', borderRadius: '4px',
+                          background: isCrit ? 'rgba(244,63,94,0.15)' : 'rgba(14,165,233,0.15)',
+                          color: isCrit ? '#f43f5e' : '#38bdf8',
+                          fontSize: '10px', fontWeight: '800'
+                        }}>
+                          {alt.alert_type || 'ALERT'}
                         </span>
                         <div>
                           <div style={{ fontWeight: '900', fontSize: '14.5px', color: '#f8fafc' }}>
@@ -2197,7 +2201,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                           fontSize: '9.5px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px',
                           background: 'rgba(255,255,255,0.06)', color: '#cbd5e1'
                         }}>
-                          📍 {alt.target_barangay || 'All Sectors'}
+                          {alt.target_barangay || 'All Sectors'}
                         </span>
                       </div>
                     </div>
@@ -2273,7 +2277,6 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '24px' }}>🛡️</span>
                 <div>
                   <div style={{ fontSize: '15px', fontWeight: '900', color: '#f8fafc', letterSpacing: '0.5px' }}>
                     CITIZEN IDENTITY VERIFICATION
@@ -2319,9 +2322,8 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                     lineHeight: '1.5',
                   }}
                 >
-                  <div style={{ fontWeight: '800', color: '#38bdf8', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>⏳</span>
-                    <span>SUBMISSION UNDER SUPER ADMIN REVIEW</span>
+                  <div style={{ fontWeight: '800', color: '#38bdf8', marginBottom: '6px' }}>
+                    SUBMISSION UNDER SUPER ADMIN REVIEW
                   </div>
                   <p style={{ margin: 0 }}>
                     Your Philippine Government ID documents and live face scan are in the verification queue.
@@ -2346,7 +2348,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                     color: '#fca5a5',
                   }}
                 >
-                  🚨 <strong>Emergency SOS remains active:</strong> You can dismiss this modal and send emergency dispatch requests at any time.
+                  <strong>Emergency SOS remains active:</strong> You can dismiss this modal and send emergency dispatch requests at any time.
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
@@ -2561,7 +2563,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                       fontSize: '12.5px',
                     }}
                   >
-                    {submittingVerification ? 'Uploading & Queuing Review...' : 'Submit Verification 🛡️'}
+                    {submittingVerification ? 'Uploading & Queuing Review...' : 'Submit Verification'}
                   </button>
                 </div>
               </form>

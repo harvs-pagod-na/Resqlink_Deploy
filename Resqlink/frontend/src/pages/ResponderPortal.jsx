@@ -13,7 +13,7 @@ const victimIcon = L.divIcon({
   className: '',
   html: `<div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
     <div style="position:absolute;width:100%;height:100%;border-radius:50%;background:rgba(244,63,94,0.4);animation:resqPulse 1.5s infinite;"></div>
-    <div style="width:30px;height:30px;border-radius:50%;background:#f43f5e;border:2.5px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 4px 14px rgba(244,63,94,0.7);color:#fff;">🆘</div>
+    <div style="width:30px;height:30px;border-radius:50%;background:#f43f5e;border:2.5px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;box-shadow:0 4px 14px rgba(244,63,94,0.7);color:#fff;">SOS</div>
   </div>`,
   iconSize: [40, 40],
   iconAnchor: [20, 20],
@@ -24,7 +24,7 @@ const responderIcon = L.divIcon({
   className: '',
   html: `<div style="position:relative;width:42px;height:42px;display:flex;align-items:center;justify-content:center;">
     <div style="position:absolute;width:100%;height:100%;border-radius:50%;background:rgba(14,165,233,0.45);animation:resqPulse 1.8s infinite;"></div>
-    <div style="width:32px;height:32px;border-radius:50%;background:#0ea5e9;border:2.5px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 4px 14px rgba(14,165,233,0.75);">🚑</div>
+    <div style="width:32px;height:32px;border-radius:50%;background:#0ea5e9;border:2.5px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;box-shadow:0 4px 14px rgba(14,165,233,0.75);color:#fff;">UNIT</div>
   </div>`,
   iconSize: [42, 42],
   iconAnchor: [21, 21],
@@ -53,13 +53,13 @@ function MapFitBoth({ p1, p2 }) {
 }
 
 const EMERGENCY_ICONS = {
-  Medical: '🚑',
-  Fire: '🔥',
-  'Flood/Disaster': '🌊',
-  'Crime/Police': '🚔',
-  Accident: '🚗',
-  Evacuation: '🏃',
-  Other: '⚠️',
+  Medical: '',
+  Fire: '',
+  'Flood/Disaster': '',
+  'Crime/Police': '',
+  Accident: '',
+  Evacuation: '',
+  Other: '',
 };
 
 const SEVERITY_COLORS = {
@@ -170,18 +170,18 @@ export default function ResponderPortal({ user, onLogout }) {
     sock.on('new_rescue_request', (data) => {
       // Only notify if assigned to this responder
       if (data.assigned_responder_id === user.id) {
-        showNotification(`🚨 NEW EMERGENCY ASSIGNED: ${data.emergency_type} at ${data.address_location || 'GPS Pin'}`, 'alert');
+        showNotification(`NEW EMERGENCY ASSIGNED: ${data.emergency_type} at ${data.address_location || 'GPS Pin'}`, 'alert');
         loadActiveIncident();
       }
     });
 
     sock.on('new_assignment_alert', (data) => {
-      showNotification(`🚨 NEW EMERGENCY ASSIGNMENT: ${data.emergency_type} in ${data.municipality || 'Pampanga'}`, 'alert');
+      showNotification(`NEW EMERGENCY ASSIGNMENT: ${data.emergency_type} in ${data.municipality || 'Pampanga'}`, 'alert');
       loadActiveIncident();
     });
 
     sock.on('responder_dispatched', (data) => {
-      showNotification(`⚡ DISPATCH ORDER AUTHORIZED: Proceed immediately to ${data.address_location || 'emergency location'}!`, 'alert');
+      showNotification(`DISPATCH ORDER AUTHORIZED: Proceed immediately to ${data.address_location || 'emergency location'}!`, 'alert');
       loadActiveIncident();
     });
 
@@ -347,7 +347,7 @@ export default function ResponderPortal({ user, onLogout }) {
         zIndex: 500,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '20px' }}>🚨</span>
+          <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f43f5e', boxShadow: '0 0 10px #f43f5e' }}></div>
           <div>
             <div style={{ fontWeight: '900', fontSize: '14px', letterSpacing: '0.8px', color: '#f43f5e' }}>
               RESQLINK <span style={{ color: '#38bdf8', fontSize: '12px' }}>RESPONDER</span>
@@ -355,7 +355,7 @@ export default function ResponderPortal({ user, onLogout }) {
             <div style={{ fontSize: '11px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span>{user.profile?.responder_unit || 'Unit-01'}</span> • 
               <span style={{ color: gpsLocked ? '#10b981' : '#f59e0b', fontWeight: '700' }}>
-                {gpsLocked ? '🛰️ GPS LIVE' : '📡 ACQUIRING GPS...'}
+                {gpsLocked ? 'GPS LIVE' : 'ACQUIRING GPS...'}
               </span>
             </div>
           </div>
@@ -406,7 +406,7 @@ export default function ResponderPortal({ user, onLogout }) {
             background: 'linear-gradient(180deg, rgba(14,165,233,0.08) 0%, rgba(7,10,19,0) 100%)',
             borderBottom: '1px solid rgba(255,255,255,0.06)',
           }}>
-            <div style={{ fontSize: '32px', marginBottom: '8px' }}>🟢</div>
+            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(16,185,129,0.15)', border: '2px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', color: '#10b981', fontSize: '20px', fontWeight: '900' }}>✓</div>
             <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#f8fafc', margin: 0 }}>
               STANDBY • READY FOR DISPATCH
             </h2>
@@ -437,7 +437,7 @@ export default function ResponderPortal({ user, onLogout }) {
                     <EmergencyBadges incident={activeIncident} size="medium" />
                   </div>
                   <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
-                    📍 {activeIncident.municipality || 'Pampanga'} • {activeIncident.address_location || 'GPS Locked'}
+                    {activeIncident.municipality || 'Pampanga'} • {activeIncident.address_location || 'GPS Locked'}
                   </div>
                 </div>
               </div>
@@ -479,7 +479,7 @@ export default function ResponderPortal({ user, onLogout }) {
                       borderRadius: '5px', fontSize: '11px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px'
                     }}
                   >
-                    📞 CALL
+                    CALL
                   </a>
                   {activeIncident.photo_url && (
                     <button
@@ -489,7 +489,7 @@ export default function ResponderPortal({ user, onLogout }) {
                         padding: '4px 8px', borderRadius: '5px', fontSize: '11px', fontWeight: '700', cursor: 'pointer'
                       }}
                     >
-                      📸 PHOTO
+                      PHOTO
                     </button>
                   )}
                 </div>
@@ -511,12 +511,12 @@ export default function ResponderPortal({ user, onLogout }) {
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
                   {victimProfile?.blood_type && (
                     <span style={{ fontSize: '10px', fontWeight: '800', background: 'rgba(244,63,94,0.2)', color: '#f43f5e', padding: '2px 6px', borderRadius: '4px' }}>
-                      🩸 {victimProfile.blood_type}
+                      Blood: {victimProfile.blood_type}
                     </span>
                   )}
                   {victimProfile?.special_needs && victimProfile.special_needs !== 'None' && (
                     <span style={{ fontSize: '10px', fontWeight: '800', background: 'rgba(245,158,11,0.2)', color: '#f59e0b', padding: '2px 6px', borderRadius: '4px' }}>
-                      ♿ {victimProfile.special_needs}
+                      Special: {victimProfile.special_needs}
                     </span>
                   )}
                   {victimProfile?.emergency_contact_phone && (
@@ -562,7 +562,7 @@ export default function ResponderPortal({ user, onLogout }) {
                   textAlign: 'center',
                 }}>
                   <div style={{ fontSize: '12px', color: '#f43f5e', fontWeight: '800', marginBottom: '8px' }}>
-                    ⚠️ NEW EMERGENCY ASSIGNED BY COMMAND NOC • ACCEPTANCE REQUIRED
+                    NEW EMERGENCY ASSIGNED BY COMMAND NOC • ACCEPTANCE REQUIRED
                   </div>
                   <button
                     disabled={updatingStatus}
@@ -581,7 +581,7 @@ export default function ResponderPortal({ user, onLogout }) {
                       boxShadow: '0 4px 16px rgba(244,63,94,0.5)',
                     }}
                   >
-                    {updatingStatus ? 'TRANSMITTING...' : '🚨 ACCEPT EMERGENCY REQUEST'}
+                    {updatingStatus ? 'TRANSMITTING...' : 'ACCEPT EMERGENCY REQUEST'}
                   </button>
                 </div>
               )}
@@ -596,7 +596,7 @@ export default function ResponderPortal({ user, onLogout }) {
                   textAlign: 'center',
                 }}>
                   <div style={{ fontSize: '13px', fontWeight: '800', color: '#38bdf8' }}>
-                    ⏳ MISSION ACCEPTED • AWAITING COMMAND NOC DISPATCH ORDER
+                    MISSION ACCEPTED • AWAITING COMMAND NOC DISPATCH ORDER
                   </div>
                   <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
                     Command NOC has been notified of your acceptance. Preparing vehicle & response gear.
@@ -608,7 +608,7 @@ export default function ResponderPortal({ user, onLogout }) {
               {activeIncident.status === 'Responder Dispatched' && (
                 <div>
                   <div style={{ fontSize: '11.5px', color: '#10b981', fontWeight: '800', marginBottom: '6px', textAlign: 'center' }}>
-                    ⚡ DISPATCH AUTHORIZED! PRESS "EN ROUTE" WHEN LEAVING BASE
+                    DISPATCH AUTHORIZED! PRESS "EN ROUTE" WHEN LEAVING BASE
                   </div>
                   <button
                     disabled={updatingStatus}
@@ -626,7 +626,7 @@ export default function ResponderPortal({ user, onLogout }) {
                       boxShadow: '0 4px 14px rgba(14,165,233,0.4)',
                     }}
                   >
-                    {updatingStatus ? 'TRANSMITTING...' : '🚀 EN ROUTE (START NAVIGATION)'}
+                    {updatingStatus ? 'TRANSMITTING...' : 'EN ROUTE (START NAVIGATION)'}
                   </button>
                 </div>
               )}
@@ -649,7 +649,7 @@ export default function ResponderPortal({ user, onLogout }) {
                     boxShadow: '0 4px 14px rgba(16,185,129,0.4)',
                   }}
                 >
-                  {updatingStatus ? 'TRANSMITTING...' : '📍 ARRIVED (ON SCENE)'}
+                  {updatingStatus ? 'TRANSMITTING...' : 'ARRIVED (ON SCENE)'}
                 </button>
               )}
 

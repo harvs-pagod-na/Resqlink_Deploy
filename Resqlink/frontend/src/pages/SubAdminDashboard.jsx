@@ -28,13 +28,13 @@ const SEVERITY_CONFIG = {
 };
 
 const EMERGENCY_ICONS = {
-  Medical: '🚑',
-  Fire: '🔥',
-  'Flood/Disaster': '🌊',
-  'Crime/Police': '🚔',
-  Accident: '⚠️',
-  Evacuation: '🏃',
-  Other: '🚨',
+  Medical: '',
+  Fire: '',
+  'Flood/Disaster': '',
+  'Crime/Police': '',
+  Accident: '',
+  Evacuation: '',
+  Other: '',
 };
 
 const STATUS_FLOW = ['Pending', 'Accepted', 'Responder Dispatched', 'En Route', 'Arrived', 'Completed'];
@@ -44,7 +44,7 @@ const victimPin = L.divIcon({
   className: '',
   html: `<div style="position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
     <div style="position:absolute;width:100%;height:100%;border-radius:50%;background:rgba(244,63,94,0.3);animation:resqPulse 1.8s infinite;"></div>
-    <div style="width:28px;height:28px;border-radius:50%;background:#f43f5e;border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.5);">🆘</div>
+    <div style="width:28px;height:28px;border-radius:50%;background:#f43f5e;border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;box-shadow:0 4px 12px rgba(0,0,0,0.5);color:#fff;">SOS</div>
   </div>`,
   iconSize: [34, 34],
   iconAnchor: [17, 17],
@@ -55,7 +55,7 @@ const responderPin = L.divIcon({
   className: '',
   html: `<div style="position:relative;width:36px;height:36px;display:flex;align-items:center;justify-content:center;">
     <div style="position:absolute;width:100%;height:100%;border-radius:50%;background:rgba(14,165,233,0.3);animation:resqPulse 2s infinite;"></div>
-    <div style="width:30px;height:30px;border-radius:50%;background:#0ea5e9;border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 4px 12px rgba(0,0,0,0.5);">⚡</div>
+    <div style="width:30px;height:30px;border-radius:50%;background:#0ea5e9;border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;box-shadow:0 4px 12px rgba(0,0,0,0.5);color:#fff;">UNIT</div>
   </div>`,
   iconSize: [36, 36],
   iconAnchor: [18, 18],
@@ -192,12 +192,12 @@ export default function SubAdminDashboard({ user, onLogout }) {
 
     sock.on('new_rescue_request', (data) => {
       setRequests((prev) => [data, ...prev.filter((r) => r.id !== data.id)]);
-      showNotification(`🚨 NEW SOS INCOMING: ${data.emergency_type} at ${data.address_location || 'GPS Pin'}`, 'alert');
+      showNotification(`Incoming SOS: ${data.emergency_type} at ${data.address_location || 'GPS Pin'}`, 'alert');
     });
 
     sock.on('new_assignment_alert', (data) => {
       setRequests((prev) => [data, ...prev.filter((r) => r.id !== data.id)]);
-      showNotification(`⚡ EMERGENCY ASSIGNED BY COMMAND: #${data.id} (${data.emergency_type}) in ${data.municipality || 'Sector'}`, 'alert');
+      showNotification(`Emergency Assigned by Command: #${data.id} (${data.emergency_type}) in ${data.municipality || 'Sector'}`, 'alert');
       loadRequests();
     });
 
@@ -206,7 +206,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
     });
 
     sock.on('responder_accepted_assignment', (data) => {
-      showNotification(`✓ Unit ${data.responderName || 'Responder'} ACCEPTED Emergency #${data.incidentId}! Ready to dispatch.`, 'alert');
+      showNotification(`Unit ${data.responderName || 'Responder'} accepted Emergency #${data.incidentId}. Ready to dispatch.`, 'alert');
       loadRequests();
     });
 
@@ -221,7 +221,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
       const rid = data.id || data?.dataValues?.id;
       setRequests((prev) => prev.map((r) => (r.id === rid ? { ...r, ...data, status: 'Completed' } : r)));
       if (selected?.id === rid) setSelected((prev) => ({ ...prev, ...data, status: 'Completed' }));
-      showNotification(`✓ Emergency #${rid || data?.id} safely RESOLVED and COMPLETED!`, 'success');
+      showNotification(`Emergency #${rid || data?.id} safely resolved and completed.`, 'success');
       loadRequests();
     });
 
@@ -263,7 +263,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
           injury_description: data.injury_description,
         }));
       }
-      showNotification(`🩺 Emergency #${rid} injury mapping updated in real-time.`, 'info');
+      showNotification(`Emergency #${rid} injury mapping updated in real-time.`, 'info');
     });
 
     // WebRTC Signaling
@@ -323,7 +323,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
       });
       const name = `${newUser.first_name || ''} ${newUser.last_name || ''}`.trim() || newUser.email || 'Citizen';
       const town = newUser.municipality || newUser.city || (newUser.profile && newUser.profile.city) || 'Your Sector';
-      showNotification(`👤 New Citizen Registered: ${name} (${town}) — Status: UNVERIFIED`, 'info');
+      showNotification(`New Citizen Registered: ${name} (${town}) — Status: UNVERIFIED`, 'info');
       loadUsers();
     });
 
@@ -345,7 +345,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
     });
 
     sock.on('verification_submitted', (data) => {
-      showNotification(`📄 ID Verification Submitted by Citizen #${data.userId}! Ready for review.`, 'info');
+      showNotification(`ID Verification Submitted by Citizen #${data.userId}. Ready for review.`, 'info');
       loadUsers();
     });
 
@@ -402,7 +402,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
           setSelectedCitizenDossier((prev) => ({ ...prev, is_verified: newStatus === 'approved', verification_status: newStatus }));
           setDossierVerification((prev) => prev ? ({ ...prev, status: newStatus.toUpperCase() }) : prev);
         }
-        showNotification(`✓ Citizen credentials: ${newStatus.toUpperCase()}`, 'success');
+        showNotification(`Citizen credentials: ${newStatus.toUpperCase()}`, 'success');
       }
     } catch (err) {
       showNotification(err.response?.data?.message || 'Failed to update verification status', 'error');
@@ -484,7 +484,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
       if (res.data?.success) {
         setRequests((prev) => prev.map((req) => (req.id === r.id ? { ...req, ...res.data.request } : req)));
         setSelected((prev) => (prev?.id === r.id ? { ...prev, ...res.data.request } : prev));
-        showNotification(`✓ Incident #${r.id} assignment confirmed! Admin & Citizen notified.`, 'success');
+        showNotification(`Incident #${r.id} assignment confirmed. Admin & Citizen notified.`, 'success');
       }
     } catch (e) {
       showNotification(e.response?.data?.message || 'Failed to confirm assignment', 'error');
@@ -580,7 +580,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
         setRequests((prev) => prev.map((req) => (req.id === selected.id ? updated : req)));
         setSelected(updated);
         setShowDispatchModal(false);
-        showNotification(`🚀 Responder Unit Dispatched to Emergency #${selected.id}!`, 'success');
+        showNotification(`Responder Unit Dispatched to Emergency #${selected.id}.`, 'success');
         startBroadcasting(updated);
       }
     } catch (err) {
@@ -610,7 +610,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
         setSelected(updated);
         setShowOverrideModal(false);
         setOverrideReason('');
-        showNotification(`✓ Incident #${selected.id} manually transitioned to ${overrideTargetStatus.toUpperCase()}!`, 'success');
+        showNotification(`Incident #${selected.id} manually transitioned to ${overrideTargetStatus.toUpperCase()}.`, 'success');
 
         if (['Responder Dispatched', 'En Route'].includes(overrideTargetStatus)) {
           if (!broadcasting && !simMode) startBroadcasting(updated);
@@ -674,7 +674,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
     emitLocation();
     const interval = setInterval(emitLocation, 1500);
     setBroadcastInterval(interval);
-    showNotification('🛰️ 1Hz Real-Time Telemetry Stream Activated (Live to Admin & Citizen)', 'success');
+    showNotification('1Hz Real-Time Telemetry Stream Activated (Live to Admin & Citizen)', 'success');
   };
 
   const stopBroadcasting = () => {
@@ -986,14 +986,14 @@ export default function SubAdminDashboard({ user, onLogout }) {
               className={`filter-chip ${navTab === 'dispatch' ? 'active' : ''}`}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', padding: '6px 14px' }}
             >
-              🚨 DISPATCH DECK ({requests.filter(r => ['Pending', 'Accepted', 'Responder Dispatched', 'En Route', 'Arrived', 'On Scene'].includes(r.status)).length})
+              DISPATCH DECK ({requests.filter(r => ['Pending', 'Accepted', 'Responder Dispatched', 'En Route', 'Arrived', 'On Scene'].includes(r.status)).length})
             </button>
             <button
               onClick={() => { setNavTab('citizens'); loadUsers(); }}
               className={`filter-chip ${navTab === 'citizens' ? 'active' : ''}`}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', padding: '6px 14px' }}
             >
-              👥 CITIZENS DIRECTORY ({subAdminCitizens.length})
+              CITIZENS DIRECTORY ({subAdminCitizens.length})
             </button>
           </div>
         </div>
@@ -1037,17 +1037,17 @@ export default function SubAdminDashboard({ user, onLogout }) {
         <>
         <div className="subadmin-kpi-grid">
         {[
-          { label: 'TOTAL RECORDED SOS', val: kpis.total, icon: '📊', color: '#0ea5e9' },
-          { label: 'PENDING TRIAGE', val: kpis.pending, icon: '🚨', color: '#f43f5e' },
-          { label: 'ACTIVE RESPONSE FORCES', val: kpis.enroute, icon: '⚡', color: '#f59e0b' },
-          { label: 'SUCCESSFUL RESOLUTIONS', val: kpis.completed, icon: '✅', color: '#10b981' },
+          { label: 'TOTAL RECORDED SOS', val: kpis.total, color: '#0ea5e9' },
+          { label: 'PENDING TRIAGE', val: kpis.pending, color: '#f43f5e' },
+          { label: 'ACTIVE RESPONSE FORCES', val: kpis.enroute, color: '#f59e0b' },
+          { label: 'SUCCESSFUL RESOLUTIONS', val: kpis.completed, color: '#10b981' },
         ].map((kpi) => (
           <div key={kpi.label} className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', letterSpacing: '0.5px' }}>{kpi.label}</div>
               <div className="mono-text" style={{ fontSize: '22px', fontWeight: '900', color: kpi.color, marginTop: '2px' }}>{kpi.val}</div>
             </div>
-            <span style={{ fontSize: '24px', opacity: 0.8 }}>{kpi.icon}</span>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: kpi.color, boxShadow: `0 0 10px ${kpi.color}` }} />
           </div>
         ))}
       </div>
@@ -1085,19 +1085,19 @@ export default function SubAdminDashboard({ user, onLogout }) {
                 className={`filter-chip ${filter === 'active' ? 'active' : ''}`}
                 onClick={() => setFilter('active')}
               >
-                ⚡ ACTIVE ({requests.filter(r => ['Pending', 'Accepted', 'Responder Dispatched', 'En Route', 'Arrived', 'On Scene'].includes(r.status)).length})
+                ACTIVE ({requests.filter(r => ['Pending', 'Accepted', 'Responder Dispatched', 'En Route', 'Arrived', 'On Scene'].includes(r.status)).length})
               </button>
               <button
                 className={`filter-chip ${filter === 'pending' ? 'active' : ''}`}
                 onClick={() => setFilter('pending')}
               >
-                🚨 PENDING ({requests.filter(r => r.status === 'Pending').length})
+                PENDING ({requests.filter(r => r.status === 'Pending').length})
               </button>
               <button
                 className={`filter-chip ${filter === 'resolved' ? 'active' : ''}`}
                 onClick={() => setFilter('resolved')}
               >
-                📁 ARCHIVED ({requests.filter(r => ['Completed', 'Resolved', 'Cancelled', 'Closed'].includes(r.status)).length})
+                ARCHIVED ({requests.filter(r => ['Completed', 'Resolved', 'Cancelled', 'Closed'].includes(r.status)).length})
               </button>
               <button
                 className={`filter-chip ${filter === 'all' ? 'active' : ''}`}
@@ -1163,7 +1163,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                         {/* Location & Details */}
                         <div style={{ marginTop: '8px', fontSize: '11.5px', color: '#94a3b8', lineHeight: '1.4' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#cbd5e1' }}>
-                            <span>📍</span>
+                            <span style={{ color: '#38bdf8', fontSize: '10.5px', fontWeight: '800' }}>LOC:</span>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {r.address_location || `${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}`}
                             </span>
@@ -1196,7 +1196,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                             confirmAssignment(r);
                           }}
                         >
-                          ⚡ ACCEPT EMERGENCY RESPONSIBILITY
+                          ACCEPT EMERGENCY RESPONSIBILITY
                         </button>
                       </div>
                     )}
@@ -1211,7 +1211,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                             updateStatus(r, 'Accepted');
                           }}
                         >
-                          ⚡ INSTANT ACCEPT & DISPATCH
+                          INSTANT ACCEPT & DISPATCH
                         </button>
                       </div>
                     )}
@@ -1270,7 +1270,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                         padding: '8px 16px', fontSize: '11.5px', fontWeight: '900', color: '#fff'
                       }}
                     >
-                      {confirming ? 'ACCEPTING...' : '⚡ ACCEPT EMERGENCY'}
+                      {confirming ? 'ACCEPTING...' : 'ACCEPT EMERGENCY'}
                     </button>
                   )}
 
@@ -1285,7 +1285,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                         padding: '8px 16px', fontSize: '11.5px', fontWeight: '900', color: '#fff'
                       }}
                     >
-                      🚀 DISPATCH RESPONDER
+                      DISPATCH RESPONDER
                     </button>
                   )}
 
@@ -1300,7 +1300,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                         padding: '8px 16px', fontSize: '11.5px', fontWeight: '900', color: '#fff'
                       }}
                     >
-                      🚗 MARK EN ROUTE
+                      MARK EN ROUTE
                     </button>
                   )}
 
@@ -1315,7 +1315,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                         padding: '8px 16px', fontSize: '11.5px', fontWeight: '900', color: '#fff'
                       }}
                     >
-                      📍 MARK ARRIVED
+                      MARK ARRIVED
                     </button>
                   )}
 
@@ -1330,7 +1330,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                         padding: '8px 16px', fontSize: '11.5px', fontWeight: '900', color: '#fff'
                       }}
                     >
-                      ✅ COMPLETE RESCUE
+                      COMPLETE RESCUE
                     </button>
                   )}
 
@@ -1364,7 +1364,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                     }}
                     title="Manually override rescue stage when GPS is offline or unconfirmed"
                   >
-                    ⚙️ MANUAL STAGE OVERRIDE
+                    MANUAL STAGE OVERRIDE
                   </button>
                 </div>
               </div>
@@ -1384,7 +1384,6 @@ export default function SubAdminDashboard({ user, onLogout }) {
                 }}>
                   <div>
                     <div style={{ fontSize: '14px', fontWeight: '900', color: '#f43f5e', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span>🚨</span>
                       <span>YOU HAVE BEEN ASSIGNED TO MANAGE THIS EMERGENCY</span>
                     </div>
                     <div style={{ fontSize: '11.5px', color: '#cbd5e1', marginTop: '4px' }}>
@@ -1407,7 +1406,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                       cursor: 'pointer'
                     }}
                   >
-                    {confirming ? 'ACCEPTING...' : '⚡ ACCEPT EMERGENCY RESPONSIBILITY'}
+                    {confirming ? 'ACCEPTING...' : 'ACCEPT EMERGENCY RESPONSIBILITY'}
                   </button>
                 </div>
               ) : (
@@ -1420,7 +1419,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                   alignItems: 'center',
                   gap: '10px'
                 }}>
-                  <span style={{ fontSize: '16px' }}>✅</span>
+                  <span style={{ fontSize: '16px', color: '#10b981', fontWeight: 'bold' }}>✓</span>
                   <div>
                     <div style={{ fontSize: '11.5px', color: '#10b981', fontWeight: '800' }}>
                       EMERGENCY RESPONSIBILITY ACCEPTED BY DISPATCHER
@@ -1483,7 +1482,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                         fontWeight: '900'
                       }}
                     >
-                      🚀 DISPATCH RESPONDER UNIT (AUTHORIZE ROLLOUT)
+                      DISPATCH RESPONDER UNIT (AUTHORIZE ROLLOUT)
                     </button>
                   )}
                   {selected.status === 'Responder Dispatched' && (
@@ -1498,7 +1497,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                         fontWeight: '900'
                       }}
                     >
-                      🚗 CONFIRM EN ROUTE (UNITS IN TRANSIT)
+                      CONFIRM EN ROUTE (UNITS IN TRANSIT)
                     </button>
                   )}
                   {selected.status === 'En Route' && (
@@ -1513,7 +1512,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                         fontWeight: '900'
                       }}
                     >
-                      📍 CONFIRM ARRIVED ON SCENE
+                      CONFIRM ARRIVED ON SCENE
                     </button>
                   )}
                   {selected.status === 'Arrived' && (
@@ -1528,7 +1527,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                         fontWeight: '900'
                       }}
                     >
-                      ✅ COMPLETE EMERGENCY RESPONSE (ARCHIVE)
+                      COMPLETE EMERGENCY RESPONSE (ARCHIVE)
                     </button>
                   )}
                 </div>
@@ -1538,7 +1537,6 @@ export default function SubAdminDashboard({ user, onLogout }) {
               <div className="glass-panel" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '16px' }}>🩺</span>
                     <span style={{ fontSize: '11px', fontWeight: '800', color: '#f43f5e', letterSpacing: '1px' }}>
                       REPORTED INJURIES & ANATOMICAL VISUALIZATION
                     </span>
@@ -1613,7 +1611,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                     className="tactical-btn"
                     style={{ fontSize: '10.5px', padding: '6px 12px', background: 'rgba(14,165,233,0.15)', border: '1px solid #0ea5e9', color: '#0ea5e9' }}
                   >
-                    🔍 VIEW FULL PHOTO
+                    VIEW FULL PHOTO
                   </a>
                 </div>
               )}
@@ -1683,7 +1681,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                   <span style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8' }}>AUDIO COMMS:</span>
                   {callStatus === 'IDLE' ? (
                     <button className="tactical-btn" onClick={startVoiceCall}>
-                      📞 1. INITIATE RADIO CALL
+                      INITIATE RADIO CALL
                     </button>
                   ) : (
                     <div style={{ display: 'flex', gap: '6px' }}>
@@ -1720,15 +1718,15 @@ export default function SubAdminDashboard({ user, onLogout }) {
                   {!broadcasting ? (
                     <>
                       <button className="tactical-btn" onClick={() => startBroadcasting(selected)}>
-                        📡 BROADCAST 1Hz TELEMETRY
+                        BROADCAST 1Hz TELEMETRY
                       </button>
                       <button className="tactical-btn" style={{ background: '#10b981' }} onClick={() => startSimulation(selected)}>
-                        🚗 SIMULATE EN-ROUTE PATH
+                        SIMULATE EN-ROUTE PATH
                       </button>
                     </>
                   ) : (
                     <button className="tactical-btn danger" onClick={stopBroadcasting}>
-                      ⏹ STOP BROADCAST
+                      STOP BROADCAST
                     </button>
                   )}
                 </div>
@@ -1736,7 +1734,6 @@ export default function SubAdminDashboard({ user, onLogout }) {
             </>
           ) : (
             <div className="glass-panel" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '12px' }}>
-              <span style={{ fontSize: '36px' }}>🛡️</span>
               <div style={{ fontSize: '14px', fontWeight: '700', color: '#94a3b8' }}>
                 SELECT AN INCIDENT FROM QUEUE TO ENGAGE COMMAND RADAR
               </div>
@@ -1756,7 +1753,6 @@ export default function SubAdminDashboard({ user, onLogout }) {
           {/* Header strip: Sector Indicator & Sync Button */}
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '22px' }}>📍</span>
               <div>
                 <div style={{ fontSize: '15px', fontWeight: '900', color: '#f8fafc', letterSpacing: '0.5px' }}>
                   {subAdminSector.toUpperCase()} MUNICIPAL CITIZENS DIRECTORY & KYC
@@ -1784,7 +1780,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                 <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b' }}>TOTAL RESIDENTS</div>
                 <div className="mono-text" style={{ fontSize: '22px', fontWeight: '900', color: '#0ea5e9', marginTop: '2px' }}>{citizenStats.total}</div>
               </div>
-              <span style={{ fontSize: '24px', opacity: 0.8 }}>👥</span>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#0ea5e9', boxShadow: '0 0 10px #0ea5e9' }} />
             </div>
 
             <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1792,7 +1788,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                 <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b' }}>VERIFIED CITIZENS</div>
                 <div className="mono-text" style={{ fontSize: '22px', fontWeight: '900', color: '#10b981', marginTop: '2px' }}>{citizenStats.verified}</div>
               </div>
-              <span style={{ fontSize: '24px', opacity: 0.8 }}>✓</span>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }} />
             </div>
 
             <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1800,7 +1796,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                 <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b' }}>PENDING ID REVIEW</div>
                 <div className="mono-text" style={{ fontSize: '22px', fontWeight: '900', color: '#38bdf8', marginTop: '2px' }}>{citizenStats.pendingReview}</div>
               </div>
-              <span style={{ fontSize: '24px', opacity: 0.8 }}>⏳</span>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 10px #38bdf8' }} />
             </div>
 
             <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1808,7 +1804,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                 <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b' }}>UNVERIFIED (NO ID YET)</div>
                 <div className="mono-text" style={{ fontSize: '22px', fontWeight: '900', color: '#f59e0b', marginTop: '2px' }}>{citizenStats.unverified}</div>
               </div>
-              <span style={{ fontSize: '24px', opacity: 0.8 }}>⚠️</span>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 10px #f59e0b' }} />
             </div>
           </div>
 
@@ -1834,21 +1830,21 @@ export default function SubAdminDashboard({ user, onLogout }) {
                 onClick={() => setCitizenKycFilter('pending')}
                 style={citizenKycFilter === 'pending' ? { borderColor: '#38bdf8', color: '#38bdf8', background: 'rgba(56,189,248,0.15)' } : {}}
               >
-                ⏳ PENDING REVIEW ({citizenStats.pendingReview})
+                PENDING REVIEW ({citizenStats.pendingReview})
               </button>
               <button
                 className={`filter-chip ${citizenKycFilter === 'unverified' ? 'active' : ''}`}
                 onClick={() => setCitizenKycFilter('unverified')}
                 style={citizenKycFilter === 'unverified' ? { borderColor: '#f59e0b', color: '#f59e0b', background: 'rgba(245,158,11,0.15)' } : {}}
               >
-                ⚠️ UNVERIFIED ({citizenStats.unverified})
+                UNVERIFIED ({citizenStats.unverified})
               </button>
             </div>
 
             <div style={{ width: '320px', position: 'relative' }}>
               <input
                 type="text"
-                placeholder="🔍 Search name, barangay, phone, email..."
+                placeholder="Search name, barangay, phone, email..."
                 value={userSearchQuery}
                 onChange={(e) => setUserSearchQuery(e.target.value)}
                 style={{
@@ -1944,7 +1940,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
 
                           <td style={{ padding: '12px 16px' }}>
                             <div style={{ fontSize: '12px', color: '#cbd5e1' }}>
-                              📍 {addressStr}
+                              {addressStr}
                             </div>
                             <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>
                               Sector: <span style={{ color: '#38bdf8', fontWeight: '700' }}>{c.profile?.city || c.municipality || subAdminSector}</span>
@@ -1981,7 +1977,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                                 background: 'rgba(14,165,233,0.15)', color: '#38bdf8', border: '1px solid rgba(14,165,233,0.4)',
                                 display: 'inline-flex', alignItems: 'center', gap: '5px'
                               }}>
-                                ⏳ PENDING REVIEW
+                                PENDING REVIEW
                               </span>
                             ) : isRejected ? (
                               <span style={{
@@ -1997,7 +1993,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                                 background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)',
                                 display: 'inline-flex', alignItems: 'center', gap: '5px'
                               }}>
-                                ⚠️ UNVERIFIED (NO ID)
+                                UNVERIFIED (NO ID)
                               </span>
                             )}
                           </td>
@@ -2013,7 +2009,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                                 color: '#f8fafc'
                               }}
                             >
-                              📋 VIEW DOSSIER / ID
+                              VIEW DOSSIER / ID
                             </button>
                           </td>
                         </tr>
@@ -2043,7 +2039,6 @@ export default function SubAdminDashboard({ user, onLogout }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: '900', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>🚀</span>
                   <span>DISPATCH RESCUE UNIT & AUTHORIZE ROLLOUT</span>
                 </div>
                 <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '2px' }}>
@@ -2062,7 +2057,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <label className="form-label" style={{ marginBottom: 0 }}>ASSIGNED DEPARTMENT / RESCUE SERVICE</label>
-                <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '800' }}>⚡ AUTO-POPULATED FROM CITIZEN SOS</span>
+                <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '800' }}>AUTO-POPULATED FROM CITIZEN SOS</span>
               </div>
               <input
                 className="tactical-input"
@@ -2160,7 +2155,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                   fontSize: '13px', fontWeight: '900', color: '#fff'
                 }}
               >
-                {dispatchingUnit ? 'CONFIRMING ROLLOUT...' : '🚀 CONFIRM DISPATCH & AUTHORIZE ROLLOUT'}
+                {dispatchingUnit ? 'CONFIRMING ROLLOUT...' : 'CONFIRM DISPATCH & AUTHORIZE ROLLOUT'}
               </button>
               <button
                 onClick={() => setShowDispatchModal(false)}
@@ -2190,7 +2185,6 @@ export default function SubAdminDashboard({ user, onLogout }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: '900', color: '#f43f5e', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>⚙️</span>
                   <span>MANUAL RESCUE STAGE OVERRIDE</span>
                 </div>
                 <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '2px' }}>
@@ -2206,7 +2200,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
             </div>
 
             <div style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.3)', borderRadius: '8px', padding: '10px 14px', fontSize: '11.5px', color: '#fca5a5' }}>
-              ⚠️ <b>Operational Intervention Notice:</b> Use manual override when GPS telemetry is offline, device batteries are drained, or field verbal reports (radio) indicate the stage has progressed. This will be permanently recorded in the audit log.
+              <b>Operational Intervention Notice:</b> Use manual override when GPS telemetry is offline, device batteries are drained, or field verbal reports (radio) indicate the stage has progressed. This will be permanently recorded in the audit log.
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2334,7 +2328,6 @@ export default function SubAdminDashboard({ user, onLogout }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: '900', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>📋</span>
                   <span>CITIZEN EMERGENCY PROFILE & ID DOSSIER</span>
                 </div>
                 <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '2px' }}>
@@ -2410,7 +2403,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                   color: (selectedCitizenDossier.is_verified || selectedCitizenDossier.verification_status === 'approved') ? '#10b981' : '#f59e0b',
                   border: `1px solid ${(selectedCitizenDossier.is_verified || selectedCitizenDossier.verification_status === 'approved') ? 'rgba(16,185,129,0.4)' : 'rgba(245,158,11,0.4)'}`
                 }}>
-                  {(selectedCitizenDossier.is_verified || selectedCitizenDossier.verification_status === 'approved') ? '✓ ID VERIFIED' : selectedCitizenDossier.verification_status === 'pending_admin' ? '⏳ PENDING REVIEW' : '⚠️ UNVERIFIED'}
+                  {(selectedCitizenDossier.is_verified || selectedCitizenDossier.verification_status === 'approved') ? '✓ ID VERIFIED' : selectedCitizenDossier.verification_status === 'pending_admin' ? 'PENDING REVIEW' : 'UNVERIFIED'}
                 </span>
               </div>
 
@@ -2470,7 +2463,7 @@ export default function SubAdminDashboard({ user, onLogout }) {
                 })()
               ) : (
                 <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
-                  ℹ️ This citizen has registered but has not yet uploaded government ID credentials.
+                  This citizen has registered but has not yet uploaded government ID credentials.
                 </div>
               )}
             </div>

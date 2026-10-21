@@ -1,20 +1,20 @@
 import React from 'react';
 
 export const EMERGENCY_CONFIG = {
-  Medical: { label: 'MEDICAL', icon: '🚑', color: '#f43f5e', bg: 'rgba(244,63,94,0.15)', border: 'rgba(244,63,94,0.35)' },
-  Fire: { label: 'FIRE', icon: '🔥', color: '#f97316', bg: 'rgba(249,115,22,0.15)', border: 'rgba(249,115,22,0.35)' },
-  'Flood/Disaster': { label: 'FLOOD / DISASTER', icon: '🌊', color: '#0ea5e9', bg: 'rgba(14,165,233,0.15)', border: 'rgba(14,165,233,0.35)' },
-  'Crime/Police': { label: 'POLICE / CRIME', icon: '🚔', color: '#818cf8', bg: 'rgba(129,140,248,0.15)', border: 'rgba(129,140,248,0.35)' },
-  Accident: { label: 'ACCIDENT', icon: '🚗', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.35)' },
-  Evacuation: { label: 'EVACUATION', icon: '🏃', color: '#10b981', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.35)' },
-  Other: { label: 'OTHER', icon: '⚠️', color: '#94a3b8', bg: 'rgba(148,163,184,0.15)', border: 'rgba(148,163,184,0.35)' },
+  Medical: { label: 'MEDICAL', icon: '', color: '#f43f5e', bg: 'rgba(244,63,94,0.15)', border: 'rgba(244,63,94,0.35)' },
+  Fire: { label: 'FIRE', icon: '', color: '#f97316', bg: 'rgba(249,115,22,0.15)', border: 'rgba(249,115,22,0.35)' },
+  'Flood/Disaster': { label: 'FLOOD / DISASTER', icon: '', color: '#0ea5e9', bg: 'rgba(14,165,233,0.15)', border: 'rgba(14,165,233,0.35)' },
+  'Crime/Police': { label: 'POLICE / CRIME', icon: '', color: '#818cf8', bg: 'rgba(129,140,248,0.15)', border: 'rgba(129,140,248,0.35)' },
+  Accident: { label: 'ACCIDENT', icon: '', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.35)' },
+  Evacuation: { label: 'EVACUATION', icon: '', color: '#10b981', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.35)' },
+  Other: { label: 'OTHER', icon: '', color: '#94a3b8', bg: 'rgba(148,163,184,0.15)', border: 'rgba(148,163,184,0.35)' },
 };
 
 export const RESCUE_DEPARTMENTS = [
-  { id: 'Medical', label: '🚑 MEDICAL (MDRRMO)', agency: 'MDRRMO', color: '#0ea5e9', role: 'Medical / EMS Rescue' },
-  { id: 'Police', label: '🚔 POLICE (PNP)', agency: 'PNP', color: '#818cf8', role: 'Law Enforcement & Security' },
-  { id: 'Fire', label: '🔥 FIRE (BFP)', agency: 'BFP', color: '#f97316', role: 'Fire Suppression & Rescue' },
-  { id: 'Rescue', label: '🛡️ RESCUE SERVICES', agency: 'MDRRMO', color: '#f43f5e', role: 'Disaster & Specialized Search/Rescue' },
+  { id: 'Medical', label: 'MEDICAL (MDRRMO)', agency: 'MDRRMO', color: '#0ea5e9', role: 'Medical / EMS Rescue' },
+  { id: 'Police', label: 'POLICE (PNP)', agency: 'PNP', color: '#818cf8', role: 'Law Enforcement & Security' },
+  { id: 'Fire', label: 'FIRE (BFP)', agency: 'BFP', color: '#f97316', role: 'Fire Suppression & Rescue' },
+  { id: 'Rescue', label: 'RESCUE SERVICES', agency: 'MDRRMO', color: '#f43f5e', role: 'Disaster & Specialized Search/Rescue' },
 ];
 
 /**
@@ -84,7 +84,7 @@ export function EmergencyBadges({ incident, size = 'medium' }) {
               whiteSpace: 'nowrap',
             }}
           >
-            <span>{conf.icon}</span>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: conf.color, display: 'inline-block' }} />
             <span>{conf.label || type.toUpperCase()}</span>
           </span>
         );
@@ -115,7 +115,6 @@ export function CriticalBadge({ size = 'medium' }) {
         boxShadow: '0 0 8px rgba(244,63,94,0.3)',
       }}
     >
-      <span>🚨</span>
       <span>CRITICAL</span>
     </span>
   );
@@ -142,22 +141,28 @@ export function CriticalWarningLogo({ size = 46, style = {} }) {
         flexShrink: 0,
         position: 'relative',
         userSelect: 'none',
+        fontWeight: '900',
+        color: '#f43f5e',
         ...style,
       }}
       title="Critical Emergency Warning"
     >
-      <span style={{ filter: 'drop-shadow(0 0 6px rgba(244,63,94,0.8))' }}>🚨</span>
+      <svg width={Math.round(size * 0.55)} height={Math.round(size * 0.55)} viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
     </div>
   );
 }
 
 export const EMERGENCY_STATUS_STEPS = [
-  { key: 'Pending', label: 'Pending', icon: '⏳', desc: 'SOS Received' },
-  { key: 'Accepted', label: 'Accepted', icon: '🔰', desc: 'Dispatcher Accepted' },
-  { key: 'Responder Dispatched', label: 'Responder Dispatched', icon: '🚀', desc: 'Unit Dispatched' },
-  { key: 'En Route', label: 'En Route', icon: '🚗', desc: 'Traveling to Scene' },
-  { key: 'Arrived', label: 'Arrived', icon: '📍', desc: 'At Emergency Scene' },
-  { key: 'Completed', label: 'Completed', icon: '✅', desc: 'Response Finished' },
+  { key: 'Pending', label: 'Pending', stepNum: 1, desc: 'Awaiting dispatcher review' },
+  { key: 'Accepted', label: 'Accepted', stepNum: 2, desc: 'Accepted by dispatch' },
+  { key: 'Responder Dispatched', label: 'Responder Dispatched', stepNum: 3, desc: 'Unit assigned and dispatched' },
+  { key: 'En Route', label: 'En Route', stepNum: 4, desc: 'Traveling to scene' },
+  { key: 'Arrived', label: 'Arrived', stepNum: 5, desc: 'At emergency scene' },
+  { key: 'Completed', label: 'Completed', stepNum: 6, desc: 'Response finished' },
 ];
 
 export function getStatusStepIndex(status) {
@@ -235,7 +240,7 @@ export function EmergencyStatusTracker({ incident, currentStatus, compact = fals
                 }}
                 title={ts ? `${step.label} at ${new Date(ts).toLocaleTimeString()}` : step.label}
               >
-                <span>{isDone ? '✓' : step.icon}</span>
+                <span>{isDone ? '✓' : step.stepNum}</span>
                 <span>{step.label}</span>
                 {ts && (
                   <span className="mono-text" style={{ fontSize: '9px', opacity: 0.8, marginLeft: '2px' }}>
@@ -334,7 +339,7 @@ export function EmergencyStatusTracker({ incident, currentStatus, compact = fals
                   transition: 'all 0.3s ease',
                 }}
               >
-                {isDone ? '✓' : step.icon}
+                {isDone ? '✓' : step.stepNum}
               </div>
 
               {/* Step Title */}

@@ -34,13 +34,13 @@ const SEVERITY_CONFIG = {
 };
 
 const EMERGENCY_ICONS = {
-  Medical: '🚑',
-  Fire: '🔥',
-  'Flood/Disaster': '🌊',
-  'Crime/Police': '🚔',
-  Accident: '⚠️',
-  Evacuation: '🏃',
-  Other: '🚨',
+  Medical: '',
+  Fire: '',
+  'Flood/Disaster': '',
+  'Crime/Police': '',
+  Accident: '',
+  Evacuation: '',
+  Other: '',
 };
 
 const STATUS_FLOW = ['Pending', 'Assigned', 'Accepted', 'Responder Dispatched', 'En Route', 'Arrived', 'Completed'];
@@ -50,7 +50,7 @@ const reqPin = (severity) =>
     className: '',
     html: `<div style="position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">
       <div style="position:absolute;width:100%;height:100%;border-radius:50%;background:${SEVERITY_CONFIG[severity]?.bg || 'rgba(244,63,94,0.2)'};animation:resqPulse 1.8s infinite;"></div>
-      <div style="width:26px;height:26px;border-radius:50%;background:${SEVERITY_CONFIG[severity]?.color || '#f43f5e'};border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 4px 10px rgba(0,0,0,0.5);">🆘</div>
+      <div style="width:26px;height:26px;border-radius:50%;background:${SEVERITY_CONFIG[severity]?.color || '#f43f5e'};border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#ffffff;box-shadow:0 4px 10px rgba(0,0,0,0.5);">SOS</div>
     </div>`,
     iconSize: [32, 32],
     iconAnchor: [16, 16],
@@ -61,7 +61,7 @@ const responderTacticalPin = L.divIcon({
   className: '',
   html: `<div style="position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
     <div style="position:absolute;width:100%;height:100%;border-radius:50%;background:rgba(14,165,233,0.4);animation:resqPulse 1.6s infinite;"></div>
-    <div style="width:28px;height:28px;border-radius:50%;background:#0ea5e9;border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 0 10px rgba(14,165,233,0.8);">🚑</div>
+    <div style="width:28px;height:28px;border-radius:50%;background:#0ea5e9;border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#ffffff;box-shadow:0 0 10px rgba(14,165,233,0.8);">UNIT</div>
   </div>`,
   iconSize: [34, 34],
   iconAnchor: [17, 17],
@@ -71,7 +71,7 @@ const responderTacticalPin = L.divIcon({
 const completedPin = L.divIcon({
   className: '',
   html: `<div style="position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;">
-    <div style="width:24px;height:24px;border-radius:50%;background:#059669;border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,0.4);opacity:0.9;">✅</div>
+    <div style="width:24px;height:24px;border-radius:50%;background:#059669;border:2px solid #ffffff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.4);opacity:0.9;">✓</div>
   </div>`,
   iconSize: [28, 28],
   iconAnchor: [14, 14],
@@ -168,7 +168,7 @@ function DispatchModal({ request, onClose, onSave }) {
       }
     } catch (err) {
       console.error('[Injury Save Error]:', err);
-      setInjurySaveMsg('⚠️ Failed to save: ' + (err.response?.data?.message || err.message));
+      setInjurySaveMsg('Failed to save: ' + (err.response?.data?.message || err.message));
     } finally {
       setSavingInjuries(false);
     }
@@ -416,7 +416,7 @@ function DispatchModal({ request, onClose, onSave }) {
                   color: isVerified ? '#10b981' : '#f59e0b',
                   border: `1px solid ${isVerified ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`
                 }}>
-                  {isVerified ? 'VERIFIED CITIZEN 🛡️' : 'UNVERIFIED ⚠️'}
+                  {isVerified ? 'VERIFIED CITIZEN' : 'UNVERIFIED'}
                 </span>
               </div>
 
@@ -477,7 +477,7 @@ function DispatchModal({ request, onClose, onSave }) {
                       padding: '4px 8px', fontSize: '10px', fontWeight: '700', borderRadius: '4px', cursor: 'pointer'
                     }}
                   >
-                    🔍 ENLARGE PHOTO
+                    ENLARGE PHOTO
                   </button>
                 </div>
               ) : (
@@ -485,7 +485,6 @@ function DispatchModal({ request, onClose, onSave }) {
                   padding: '30px 14px', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.1)',
                   textAlign: 'center', color: '#64748b', fontSize: '12px'
                 }}>
-                  <div style={{ fontSize: '28px', marginBottom: '6px' }}>📷</div>
                   <div style={{ fontWeight: '700', color: '#94a3b8' }}>NO MEDIA ATTACHED</div>
                   <div style={{ fontSize: '10.5px', marginTop: '2px' }}>Citizen submitted emergency with GPS and description only.</div>
                 </div>
@@ -498,7 +497,6 @@ function DispatchModal({ request, onClose, onSave }) {
           <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '16px' }}>🩺</span>
                 <span style={{ fontWeight: '800', color: '#f43f5e', fontSize: '11px', letterSpacing: '1px' }}>
                   REPORTED INJURIES & ANATOMICAL MAPPING
                 </span>
@@ -529,7 +527,7 @@ function DispatchModal({ request, onClose, onSave }) {
                       cursor: 'pointer',
                     }}
                   >
-                    ✏️ CONFIGURE / REVISE INJURIES
+                    CONFIGURE / REVISE INJURIES
                   </button>
                 ) : (
                   <>
@@ -548,7 +546,7 @@ function DispatchModal({ request, onClose, onSave }) {
                         border: 'none',
                       }}
                     >
-                      {savingInjuries ? 'SAVING...' : '💾 SAVE REVISIONS'}
+                      {savingInjuries ? 'SAVING...' : 'SAVE REVISIONS'}
                     </button>
                     <button
                       type="button"
@@ -667,17 +665,15 @@ function DispatchModal({ request, onClose, onSave }) {
             <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
               {request.subadmin_confirmed_at ? (
                 <div style={{ fontSize: '11px', color: '#10b981', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>✅</span>
                   <span>CONFIRMED: Sub-Admin confirmed incident receipt at {new Date(request.subadmin_confirmed_at).toLocaleTimeString()}. Dual alerts broadcasted.</span>
                 </div>
               ) : form.assigned_subadmin_id ? (
                 <div style={{ fontSize: '11px', color: '#f59e0b', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>⏳</span>
                   <span>AWAITING SUB-ADMIN CONFIRMATION: Once assigned, the Sub-Admin will confirm receipt to notify both Admin & Citizen.</span>
                 </div>
               ) : (
                 <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                  ℹ️ Delegating to a sector sub-admin will route this emergency directly to their tactical dispatch terminal.
+                  Delegating to a sector sub-admin will route this emergency directly to their tactical dispatch terminal.
                 </div>
               )}
             </div>
@@ -690,7 +686,7 @@ function DispatchModal({ request, onClose, onSave }) {
                 2. SELECT ASSIGNED DEPARTMENT / RESCUE SERVICE
               </label>
               <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '800' }}>
-                ⚡ AUTO-POPULATED FROM CITIZEN SOS ({selectedDepartments.length} ACTIVE)
+                AUTO-POPULATED FROM CITIZEN SOS ({selectedDepartments.length} ACTIVE)
               </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
@@ -751,7 +747,7 @@ function DispatchModal({ request, onClose, onSave }) {
                     .filter((r) => r.department.toLowerCase() === selectedDepartments[0].toLowerCase())
                     .map((r) => (
                       <option key={r.id} value={r.id} style={{ background: '#0b1120', color: r.is_available ? '#fff' : '#f43f5e' }}>
-                        {r.name} • {r.unit} ({r.badge}) - {r.phone} {r.is_available ? '✓ [AVAILABLE]' : '⚠️ [BUSY ON MISSION]'}
+                        {r.name} • {r.unit} ({r.badge}) - {r.phone} {r.is_available ? '✓ [AVAILABLE]' : '[BUSY ON MISSION]'}
                       </option>
                     ))}
                 </select>
@@ -799,7 +795,7 @@ function DispatchModal({ request, onClose, onSave }) {
                             color: assignedUnit.is_available ? '#10b981' : '#f43f5e',
                             border: `1px solid ${assignedUnit.is_available ? 'rgba(16,185,129,0.4)' : 'rgba(244,63,94,0.4)'}`
                           }}>
-                            {assignedUnit.is_available ? '✓ AVAILABLE' : '⚠️ BUSY'}
+                            {assignedUnit.is_available ? '✓ AVAILABLE' : 'BUSY'}
                           </span>
                         )}
                       </div>
@@ -812,7 +808,7 @@ function DispatchModal({ request, onClose, onSave }) {
                         <option value="">-- Choose {dept} Response Unit --</option>
                         {deptUnits.map((r) => (
                           <option key={r.id} value={r.id} style={{ background: '#0b1120', color: r.is_available ? '#fff' : '#f43f5e' }}>
-                            {r.name} • {r.unit} ({r.badge}) - {r.phone} {r.is_available ? '✓ [AVAILABLE]' : '⚠️ [BUSY ON MISSION]'}
+                            {r.name} • {r.unit} ({r.badge}) - {r.phone} {r.is_available ? '✓ [AVAILABLE]' : '[BUSY ON MISSION]'}
                           </option>
                         ))}
                       </select>
@@ -895,12 +891,12 @@ function DispatchModal({ request, onClose, onSave }) {
           {/* Contextual Guidance Banner */}
           {request.status === 'Pending' && (
             <div style={{ background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.3)', padding: '10px', borderRadius: '6px', fontSize: '11.5px', color: '#38bdf8' }}>
-              💡 <b>Next Step:</b> Accept this emergency and assign to the <b>{form.assigned_sector} Sector Sub-Admin</b>.
+              <b>Next Step:</b> Accept this emergency and assign to the <b>{form.assigned_sector} Sector Sub-Admin</b>.
             </div>
           )}
           {request.status === 'Assigned' && !request.subadmin_confirmed_at && (
             <div style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', padding: '10px', borderRadius: '6px', fontSize: '11.5px', color: '#f59e0b' }}>
-              ⏳ <b>Awaiting Sub-Admin Confirmation:</b> Incident assigned to {form.assigned_sector} Sector. The Duty Dispatcher must confirm to notify Citizen and Command.
+              <b>Awaiting Sub-Admin Confirmation:</b> Incident assigned to {form.assigned_sector} Sector. The Duty Dispatcher must confirm to notify Citizen and Command.
             </div>
           )}
           {request.status === 'Assigned' && request.subadmin_confirmed_at && (
@@ -928,7 +924,7 @@ function DispatchModal({ request, onClose, onSave }) {
                   opacity: (!form.assigned_subadmin_id) ? 0.6 : 1
                 }}
               >
-                {saving ? 'ASSIGNING DISPATCHER...' : `⚡ ASSIGN DISPATCHER & NOTIFY SUB-ADMIN`}
+                {saving ? 'ASSIGNING DISPATCHER...' : `ASSIGN DISPATCHER & NOTIFY SUB-ADMIN`}
               </button>
             ) : request.status === 'Accepted' ? (
               <button
@@ -941,7 +937,7 @@ function DispatchModal({ request, onClose, onSave }) {
                   boxShadow: '0 0 20px rgba(16,185,129,0.4)'
                 }}
               >
-                {saving ? 'DISPATCHING...' : '🚀 DISPATCH RESPONDER (AUTHORIZE MOVEMENT)'}
+                {saving ? 'DISPATCHING...' : 'DISPATCH RESPONDER (AUTHORIZE MOVEMENT)'}
               </button>
             ) : (
               <button
@@ -983,11 +979,11 @@ const TOWN_CONFIG = {
 };
 
 const DEPT_CONFIG = {
-  Medical: { label: 'Medical', icon: '🚑', color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.35)' },
-  Police: { label: 'Police', icon: '🚔', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.12)', border: 'rgba(56, 189, 248, 0.35)' },
-  Fire: { label: 'Fire', icon: '🚒', color: '#f43f5e', bg: 'rgba(244, 63, 94, 0.12)', border: 'rgba(244, 63, 94, 0.35)' },
-  Rescue: { label: 'Rescue', icon: '⛑️', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.35)' },
-  MDRRMO: { label: 'Rescue', icon: '⛑️', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.35)' },
+  Medical: { label: 'Medical', color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.35)' },
+  Police: { label: 'Police', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.12)', border: 'rgba(56, 189, 248, 0.35)' },
+  Fire: { label: 'Fire', color: '#f43f5e', bg: 'rgba(244, 63, 94, 0.12)', border: 'rgba(244, 63, 94, 0.35)' },
+  Rescue: { label: 'Rescue', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.35)' },
+  MDRRMO: { label: 'Rescue', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.35)' },
 };
 
 function detectMunicipality(obj) {
@@ -1116,7 +1112,7 @@ export default function AdminDashboard({ user, onLogout }) {
     try {
       const res = await api.post('/auth/responder', responderForm);
       if (res.data.success) {
-        setResponderMsg(`✅ First Responder deployed successfully for ${responderForm.municipality} (${responderForm.department})!`);
+        setResponderMsg(`First Responder deployed successfully for ${responderForm.municipality} (${responderForm.department})!`);
         setResponderForm({
           first_name: '',
           last_name: '',
@@ -1130,10 +1126,10 @@ export default function AdminDashboard({ user, onLogout }) {
         });
         loadUsers();
       } else {
-        setResponderMsg('❌ ' + (res.data.message || 'Creation failed'));
+        setResponderMsg(res.data.message || 'Creation failed');
       }
     } catch (err) {
-      setResponderMsg('❌ ' + (err.response?.data?.message || err.message || 'Deployment failed'));
+      setResponderMsg(err.response?.data?.message || err.message || 'Deployment failed');
     } finally {
       setCreatingResponder(false);
     }
@@ -1214,7 +1210,7 @@ export default function AdminDashboard({ user, onLogout }) {
       };
       const res = await api.post('/alerts/create', payload);
       if (res.data?.success) {
-        showNotification('📢 Public Emergency Alert broadcasted to all citizens!', 'success');
+        showNotification('Public Emergency Alert broadcasted to all citizens!', 'success');
         setNewAlertForm({
           title: '',
           message: '',
@@ -1277,7 +1273,7 @@ export default function AdminDashboard({ user, onLogout }) {
         setCounts(calculateCounts(next));
         return next;
       });
-      showNotification(`🚨 INCOMING SOS: ${data.emergency_type} in ${detectMunicipality(data)}`, 'alert');
+      showNotification(`INCOMING SOS: ${data.emergency_type} in ${detectMunicipality(data)}`, 'alert');
       loadAnalytics();
       loadRequests();
     });
@@ -1327,17 +1323,17 @@ export default function AdminDashboard({ user, onLogout }) {
     });
 
     sock.on('responder_dispatched', (data) => {
-      showNotification(`🚨 Responders Dispatched to Emergency #${data.id}!`, 'alert');
+      showNotification(`Responders Dispatched to Emergency #${data.id}!`, 'alert');
       loadRequests();
     });
 
     sock.on('responder_en_route', (data) => {
-      showNotification(`🚀 Responders EN ROUTE to Emergency #${data.id}!`, 'info');
+      showNotification(`Responders EN ROUTE to Emergency #${data.id}!`, 'info');
       loadRequests();
     });
 
     sock.on('responder_arrived', (data) => {
-      showNotification(`📍 Responders ARRIVED at Scene #${data.id}!`, 'info');
+      showNotification(`Responders ARRIVED at Scene #${data.id}!`, 'info');
       loadRequests();
     });
 
@@ -1347,7 +1343,7 @@ export default function AdminDashboard({ user, onLogout }) {
         return prev.map((r) => (r.id === rid ? { ...r, injuries: data.injuries, injury_description: data.injury_description } : r));
       });
       setSelected((prev) => (prev && prev.id === rid ? { ...prev, injuries: data.injuries, injury_description: data.injury_description } : prev));
-      showNotification(`🩺 Emergency #${rid} injury mapping updated in real-time.`, 'alert');
+      showNotification(`Emergency #${rid} injury mapping updated in real-time.`, 'alert');
     });
 
     sock.on('resq_live_location', (data) => {
@@ -1372,7 +1368,7 @@ export default function AdminDashboard({ user, onLogout }) {
       });
       const name = `${newUser.first_name || ''} ${newUser.last_name || ''}`.trim() || newUser.email || 'Citizen';
       const town = detectMunicipality(newUser);
-      showNotification(`👤 New Citizen Registered: ${name} (${town}) — Status: UNVERIFIED`, 'info');
+      showNotification(`New Citizen Registered: ${name} (${town}) — Status: UNVERIFIED`, 'info');
       loadUsers();
     });
 
@@ -1394,7 +1390,7 @@ export default function AdminDashboard({ user, onLogout }) {
     });
 
     sock.on('verification_submitted', (data) => {
-      showNotification(`📄 ID Verification Submitted by User #${data.userId}! Ready for review.`, 'info');
+      showNotification(`ID Verification Submitted by User #${data.userId}! Ready for review.`, 'info');
       loadUsers();
     });
 
@@ -1492,14 +1488,14 @@ export default function AdminDashboard({ user, onLogout }) {
         municipality: subAdminForm.assigned_town,
       });
       if (res.data.success) {
-        setSubAdminMsg(`✅ Sub-Admin unit account deployed successfully for ${subAdminForm.assigned_town} HQ!`);
+        setSubAdminMsg(`Sub-Admin unit account deployed successfully for ${subAdminForm.assigned_town} HQ!`);
         setSubAdminForm({ email: '', password: '', first_name: '', last_name: '', phone_number: '', unit_name: '', assigned_town: 'Porac' });
         loadUsers();
       } else {
-        setSubAdminMsg('❌ ' + (res.data.message || 'Creation failed'));
+        setSubAdminMsg(res.data.message || 'Creation failed');
       }
     } catch (e) {
-      setSubAdminMsg('❌ ' + (e.response?.data?.message || 'Creation failed'));
+      setSubAdminMsg(e.response?.data?.message || 'Creation failed');
     }
     setCreatingSub(false);
   };
@@ -1996,17 +1992,17 @@ export default function AdminDashboard({ user, onLogout }) {
       {/* KPI METRICS BAR */}
       <div className="admin-kpi-grid">
         {[
-          { label: 'ACTIVE INCIDENT QUEUE', val: requests.filter(r => isLiveEmergency(r.status)).length, icon: '📋', color: '#38bdf8' },
-          { label: 'PENDING TRIAGE QUEUE', val: requests.filter(r => r.status === 'Pending').length, icon: '🚨', color: '#f43f5e' },
-          { label: 'REGISTERED CITIZENS & FLEET', val: users.length || 0, icon: '👥', color: '#a855f7' },
-          { label: 'RESOLVED & ARCHIVED INCIDENTS', val: requests.filter(r => ['Completed', 'Resolved', 'Closed'].includes(r.status)).length, icon: '✅', color: '#10b981' },
+          { label: 'ACTIVE INCIDENT QUEUE', val: requests.filter(r => isLiveEmergency(r.status)).length, color: '#38bdf8' },
+          { label: 'PENDING TRIAGE QUEUE', val: requests.filter(r => r.status === 'Pending').length, color: '#f43f5e' },
+          { label: 'REGISTERED CITIZENS & FLEET', val: users.length || 0, color: '#a855f7' },
+          { label: 'RESOLVED & ARCHIVED INCIDENTS', val: requests.filter(r => ['Completed', 'Resolved', 'Closed'].includes(r.status)).length, color: '#10b981' },
         ].map((kpi) => (
           <div key={kpi.label} className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', letterSpacing: '0.5px' }}>{kpi.label}</div>
               <div className="mono-text" style={{ fontSize: '22px', fontWeight: '900', color: kpi.color, marginTop: '2px' }}>{kpi.val}</div>
             </div>
-            <span style={{ fontSize: '24px', opacity: 0.8 }}>{kpi.icon}</span>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: kpi.color, boxShadow: `0 0 10px ${kpi.color}` }} />
           </div>
         ))}
       </div>
@@ -2014,19 +2010,18 @@ export default function AdminDashboard({ user, onLogout }) {
       {/* NAVIGATION TABS WITH ALERTS AND ANALYTICS */}
       <div className="admin-nav-tabs">
         {[
-          { id: 'incidents', label: 'INCIDENTS COMMAND QUEUE', icon: '🚨', badge: counts.pending ? `${counts.pending}` : null },
-          { id: 'map', label: 'REGIONAL TACTICAL MAP', icon: '🗺️' },
-          { id: 'alerts', label: 'PUBLIC EMERGENCY ALERTS', icon: '📢', badge: alertsList.filter(a => a.is_active).length ? `${alertsList.filter(a => a.is_active).length}` : null },
-          { id: 'analytics', label: 'REAL-TIME ANALYTICS & REPORTS', icon: '📊' },
-          { id: 'users', label: 'USER MANAGEMENT', icon: '👥', badge: `${users.length}` },
-          { id: 'fleet', label: 'FLEET & DISPATCHER DESK', icon: '📡' },
+          { id: 'incidents', label: 'INCIDENTS COMMAND QUEUE', badge: counts.pending ? `${counts.pending}` : null },
+          { id: 'map', label: 'REGIONAL TACTICAL MAP' },
+          { id: 'alerts', label: 'PUBLIC EMERGENCY ALERTS', badge: alertsList.filter(a => a.is_active).length ? `${alertsList.filter(a => a.is_active).length}` : null },
+          { id: 'analytics', label: 'REAL-TIME ANALYTICS & REPORTS' },
+          { id: 'users', label: 'USER MANAGEMENT', badge: `${users.length}` },
+          { id: 'fleet', label: 'FLEET & DISPATCHER DESK' },
         ].map((t) => (
           <button
             key={t.id}
             className={`nav-tab ${tab === t.id ? 'active' : ''}`}
             onClick={() => setTab(t.id)}
           >
-            <span>{t.icon}</span>
             <span>{t.label}</span>
             {t.badge && (
               <span style={{
@@ -2055,7 +2050,7 @@ export default function AdminDashboard({ user, onLogout }) {
             {isJurisdictionLocked ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)', padding: '6px 14px', borderRadius: '6px' }}>
                 <span style={{ fontSize: '11px', fontWeight: '900', color: '#38bdf8', letterSpacing: '0.5px' }}>
-                  📍 {assignedJurisdiction.toUpperCase()} COMMAND JURISDICTION
+                  {assignedJurisdiction.toUpperCase()} COMMAND JURISDICTION
                 </span>
                 <span style={{ fontSize: '9px', fontWeight: '800', background: '#38bdf8', color: '#070a13', padding: '1px 6px', borderRadius: '4px' }}>
                   ASSIGNED SECTOR
@@ -2077,19 +2072,19 @@ export default function AdminDashboard({ user, onLogout }) {
                   className={`pill-btn town-pill-porac ${townFilter === 'Porac' ? 'active' : ''}`}
                   onClick={() => setTownFilter('Porac')}
                 >
-                  📍 PORAC ({requests.filter((r) => detectMunicipality(r) === 'Porac').length})
+                  PORAC ({requests.filter((r) => detectMunicipality(r) === 'Porac').length})
                 </button>
                 <button
                   className={`pill-btn town-pill-santarita ${townFilter === 'Santa Rita' ? 'active' : ''}`}
                   onClick={() => setTownFilter('Santa Rita')}
                 >
-                  📍 SANTA RITA ({requests.filter((r) => detectMunicipality(r) === 'Santa Rita').length})
+                  SANTA RITA ({requests.filter((r) => detectMunicipality(r) === 'Santa Rita').length})
                 </button>
                 <button
                   className={`pill-btn town-pill-guagua ${townFilter === 'Guagua' ? 'active' : ''}`}
                   onClick={() => setTownFilter('Guagua')}
                 >
-                  📍 GUAGUA ({requests.filter((r) => detectMunicipality(r) === 'Guagua').length})
+                  GUAGUA ({requests.filter((r) => detectMunicipality(r) === 'Guagua').length})
                 </button>
               </div>
             )}
@@ -2102,20 +2097,20 @@ export default function AdminDashboard({ user, onLogout }) {
                 className={`pill-btn ${filter === 'active_queue' ? 'active' : ''}`}
                 style={filter === 'active_queue' ? { background: '#0284c7', color: '#fff', border: '1px solid #38bdf8' } : {}}
               >
-                ⚡ ACTIVE QUEUE ({requests.filter(r => ['Pending', 'Accepted', 'Responder Dispatched', 'En Route', 'Arrived', 'On Scene'].includes(r.status)).length})
+                ACTIVE QUEUE ({requests.filter(r => ['Pending', 'Accepted', 'Responder Dispatched', 'En Route', 'Arrived', 'On Scene'].includes(r.status)).length})
               </button>
               <button
                 onClick={() => setFilter('pending')}
                 className={`pill-btn ${filter === 'pending' ? 'active' : ''}`}
               >
-                🚨 PENDING ({requests.filter(r => r.status === 'Pending').length})
+                PENDING ({requests.filter(r => r.status === 'Pending').length})
               </button>
               <button
                 onClick={() => setFilter('history')}
                 className={`pill-btn ${filter === 'history' || filter === 'completed' ? 'active' : ''}`}
                 style={filter === 'history' ? { background: '#059669', color: '#fff', border: '1px solid #10b981' } : {}}
               >
-                📁 ARCHIVED / HISTORY ({requests.filter(r => ['Completed', 'Resolved', 'Cancelled', 'Closed'].includes(r.status)).length})
+                ARCHIVED / HISTORY ({requests.filter(r => ['Completed', 'Resolved', 'Cancelled', 'Closed'].includes(r.status)).length})
               </button>
               <button
                 onClick={() => setFilter('all')}
@@ -2155,7 +2150,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             fontSize: '9.5px', fontWeight: '800', padding: '2px 7px', borderRadius: '4px',
                             background: townConf.bg, color: townConf.color, border: `1px solid ${townConf.border}`, letterSpacing: '0.5px'
                           }}>
-                            📍 {townConf.label}
+                            {townConf.label}
                           </span>
 
                           <CriticalBadge size="small" />
@@ -2168,12 +2163,12 @@ export default function AdminDashboard({ user, onLogout }) {
                         </div>
 
                         <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
-                          📍 {r.address_location || 'GPS Captured'} • Reporter: <b style={{ color: '#cbd5e1' }}>{r.requester?.profile?.first_name || 'Citizen'}</b> ({r.contact_number || r.requester?.phone_number || 'N/A'})
+                          {r.address_location || 'GPS Captured'} • Reporter: <b style={{ color: '#cbd5e1' }}>{r.requester?.profile?.first_name || 'Citizen'}</b> ({r.contact_number || r.requester?.phone_number || 'N/A'})
                         </div>
 
                         {/* Assigned Dispatcher / Sub-Admin */}
                         <div style={{ fontSize: '11px', color: (r.assigned_subadmin || r.assigned_subadmin_id) ? '#38bdf8' : '#f59e0b', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <span>{(r.assigned_subadmin || r.assigned_subadmin_id) ? '👤 Assigned Dispatcher:' : '⚠️ Duty Dispatcher:'}</span>
+                          <span>{(r.assigned_subadmin || r.assigned_subadmin_id) ? 'Assigned Dispatcher:' : 'Duty Dispatcher:'}</span>
                           <b>
                             {r.assigned_subadmin?.profile?.first_name
                               ? `${r.assigned_subadmin.profile.first_name} ${r.assigned_subadmin.profile.last_name || ''} (${r.assigned_sector || r.municipality || 'Sector'})`
@@ -2186,7 +2181,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
                         {r.responder_name && (
                           <div style={{ fontSize: '11px', color: '#38bdf8', marginTop: '2px' }}>
-                            ⚡ Assigned Force: <b>{r.responder_name}</b> ({r.responder_unit || 'Unit Alpha'})
+                            Assigned Force: <b>{r.responder_name}</b> ({r.responder_unit || 'Unit Alpha'})
                           </div>
                         )}
 
@@ -2208,7 +2203,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           }}
                           onClick={() => dispatchRequest(r.id, { status: 'Responder Dispatched' })}
                         >
-                          🚀 DISPATCH RESPONDER
+                          DISPATCH RESPONDER
                         </button>
                       )}
                       
@@ -2222,7 +2217,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           }}
                           onClick={() => setSelected(r)}
                         >
-                          ⚡ ASSIGN DISPATCHER
+                          ASSIGN DISPATCHER
                         </button>
                       )}
 
@@ -2259,7 +2254,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     }
                   }}
                 >
-                  📍 {assignedJurisdiction.toUpperCase()} SECTOR (ASSIGNED JURISDICTION)
+                  {assignedJurisdiction.toUpperCase()} SECTOR (ASSIGNED JURISDICTION)
                 </button>
               </div>
             ) : (
@@ -2269,25 +2264,25 @@ export default function AdminDashboard({ user, onLogout }) {
                   className={`pill-btn ${mapZoom === 12 ? 'active' : ''}`}
                   onClick={() => { setMapCenter([15.0250, 120.5900]); setMapZoom(12); }}
                 >
-                  🎯 TRI-MUNICIPALITY OVERVIEW (PORAC • STA. RITA • GUAGUA)
+                  TRI-MUNICIPALITY OVERVIEW (PORAC • STA. RITA • GUAGUA)
                 </button>
                 <button
                   className="pill-btn town-pill-porac"
                   onClick={() => { setMapCenter(TOWN_CONFIG.Porac.coords); setMapZoom(14); }}
                 >
-                  📍 PORAC SECTOR (15.0719, 120.5419)
+                  PORAC SECTOR (15.0719, 120.5419)
                 </button>
                 <button
                   className="pill-btn town-pill-santarita"
                   onClick={() => { setMapCenter(TOWN_CONFIG['Santa Rita'].coords); setMapZoom(14); }}
                 >
-                  📍 SANTA RITA SECTOR (15.0006, 120.6128)
+                  SANTA RITA SECTOR (15.0006, 120.6128)
                 </button>
                 <button
                   className="pill-btn town-pill-guagua"
                   onClick={() => { setMapCenter(TOWN_CONFIG.Guagua.coords); setMapZoom(14); }}
                 >
-                  📍 GUAGUA SECTOR (14.9667, 120.6333)
+                  GUAGUA SECTOR (14.9667, 120.6333)
                 </button>
               </div>
             )}
@@ -2300,17 +2295,17 @@ export default function AdminDashboard({ user, onLogout }) {
                 onClick={() => setMapIncidentFilter('active')}
                 style={mapIncidentFilter === 'active' ? { background: '#f43f5e', color: '#fff', borderColor: '#f43f5e', boxShadow: '0 0 10px rgba(244,63,94,0.35)' } : {}}
               >
-                🚨 LIVE ACTIVE ONLY ({requests.filter(r => isLiveEmergency(r.status)).length})
+                LIVE ACTIVE ONLY ({requests.filter(r => isLiveEmergency(r.status)).length})
               </button>
               <button
                 className={`pill-btn ${mapIncidentFilter === 'all' ? 'active' : ''}`}
                 onClick={() => setMapIncidentFilter('all')}
                 style={mapIncidentFilter === 'all' ? { background: '#059669', color: '#fff', borderColor: '#10b981' } : {}}
               >
-                📁 ALL / ARCHIVE ({requests.length})
+                ALL / ARCHIVE ({requests.length})
               </button>
               <div style={{ fontSize: '11px', color: '#64748b', marginLeft: '6px' }}>
-                🗺️ Scope: <b>{isSuperAdmin ? 'Porac, Santa Rita, Guagua (Pampanga)' : `${assignedJurisdiction} Sector`}</b>
+                Scope: <b>{isSuperAdmin ? 'Porac, Santa Rita, Guagua (Pampanga)' : `${assignedJurisdiction} Sector`}</b>
               </div>
             </div>
           </div>
@@ -2350,7 +2345,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   icon={L.divIcon({
                     className: '',
                     html: `<div style="padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.85); border: 2px solid ${conf.color}; color: ${conf.color}; font-size: 10px; font-weight: 900; white-space: nowrap; box-shadow: 0 0 10px ${conf.color}; transform: translate(-50%, -50%);">
-                      🏛️ ${conf.label} COMMAND HUB
+                      ${conf.label} COMMAND HUB
                     </div>`,
                     iconSize: [120, 24],
                     iconAnchor: [60, 12],
@@ -2382,7 +2377,7 @@ export default function AdminDashboard({ user, onLogout }) {
                       <Popup>
                         <div style={{ minWidth: '160px' }}>
                           <b style={{ color: isCompleted ? '#10b981' : (isCancelled ? '#94a3b8' : '#f43f5e') }}>
-                            {isCompleted ? '✅ Resolved Incident' : (isCancelled ? '✕ Cancelled SOS' : '🆘 Emergency')} #{r.id} ({town})
+                            {isCompleted ? 'Resolved Incident' : (isCancelled ? '✕ Cancelled SOS' : 'Emergency')} #{r.id} ({town})
                           </b><br />
                           <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                             <EmergencyBadges incident={r} size="small" />
@@ -2393,7 +2388,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           <b>Location:</b> {r.address_location || 'GPS'}<br />
                           {r.responder_name && (
                             <div style={{ marginTop: '4px', paddingTop: '4px', borderTop: '1px solid #ddd', color: '#0ea5e9' }}>
-                              🚑 <b>Unit:</b> {r.responder_unit || 'Unit-01'} ({r.responder_name})
+                              <b>Unit:</b> {r.responder_unit || 'Unit-01'} ({r.responder_name})
                             </div>
                           )}
                         </div>
@@ -2409,7 +2404,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         >
                           <Popup>
                             <div style={{ minWidth: '150px' }}>
-                              <b style={{ color: '#0ea5e9' }}>🚑 {r.responder_unit || 'Rescue Force'}</b><br />
+                              <b style={{ color: '#0ea5e9' }}>{r.responder_unit || 'Rescue Force'}</b><br />
                               <b>Assigned to:</b> SOS #{r.id}<br />
                               <b>Status:</b> {r.status}<br />
                               <b>Commander:</b> {r.responder_name || 'MDRRMO Alpha'}<br />
@@ -2447,7 +2442,6 @@ export default function AdminDashboard({ user, onLogout }) {
                 id: 'admins',
                 title: 'ADMINISTRATORS',
                 count: userCategoryCounts.admins,
-                icon: '👑',
                 color: '#f43f5e',
                 border: '#f43f5e',
                 desc: 'Full access, user governance, triage & reporting',
@@ -2456,7 +2450,6 @@ export default function AdminDashboard({ user, onLogout }) {
                 id: 'sub_admins',
                 title: 'SUB-ADMINISTRATORS',
                 count: userCategoryCounts.sub_admins,
-                icon: '🔰',
                 color: '#38bdf8',
                 border: '#38bdf8',
                 desc: 'Municipal dispatch desks & localized triage',
@@ -2465,7 +2458,6 @@ export default function AdminDashboard({ user, onLogout }) {
                 id: 'citizens',
                 title: 'CITIZENS / USERS',
                 count: userCategoryCounts.citizens,
-                icon: '👥',
                 color: '#10b981',
                 border: '#10b981',
                 desc: 'Resident SOS protection & emergency profiles',
@@ -2474,7 +2466,6 @@ export default function AdminDashboard({ user, onLogout }) {
                 id: 'responders',
                 title: 'FIRST RESPONDERS',
                 count: userCategoryCounts.responders,
-                icon: '🚑',
                 color: '#f59e0b',
                 border: '#f59e0b',
                 desc: 'Medical, Police, Fire & Rescue tactical units',
@@ -2553,11 +2544,6 @@ export default function AdminDashboard({ user, onLogout }) {
           >
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '18px' }}>
-                  {userCategoryTab === 'admins' ? '👑' :
-                   userCategoryTab === 'sub_admins' ? '🔰' :
-                   userCategoryTab === 'citizens' ? '👥' : '🚑'}
-                </span>
                 <span style={{ fontWeight: '900', fontSize: '15px', color: '#f8fafc', letterSpacing: '0.5px' }}>
                   {userCategoryTab === 'admins' ? 'ADMINISTRATORS (FULL COMMAND ACCESS)' :
                    userCategoryTab === 'sub_admins' ? 'SUB-ADMINISTRATORS (MUNICIPAL DISPATCH DESKS)' :
@@ -2639,7 +2625,7 @@ export default function AdminDashboard({ user, onLogout }) {
               {isJurisdictionLocked ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)', padding: '5px 12px', borderRadius: '6px' }}>
                   <span style={{ fontSize: '11px', fontWeight: '900', color: '#38bdf8' }}>
-                    📍 {assignedJurisdiction.toUpperCase()} RESIDENTS & PERSONNEL JURISDICTION
+                    {assignedJurisdiction.toUpperCase()} RESIDENTS & PERSONNEL JURISDICTION
                   </span>
                   <span style={{ fontSize: '9px', fontWeight: '800', background: '#38bdf8', color: '#070a13', padding: '1px 5px', borderRadius: '4px' }}>
                     LOCKED SECTOR
@@ -2661,19 +2647,19 @@ export default function AdminDashboard({ user, onLogout }) {
                     className={`pill-btn town-pill-porac ${userTownFilter === 'Porac' ? 'active' : ''}`}
                     onClick={() => setUserTownFilter('Porac')}
                   >
-                    📍 PORAC ({categoryTownStats.porac})
+                    PORAC ({categoryTownStats.porac})
                   </button>
                   <button
                     className={`pill-btn town-pill-santarita ${userTownFilter === 'Santa Rita' ? 'active' : ''}`}
                     onClick={() => setUserTownFilter('Santa Rita')}
                   >
-                    📍 SANTA RITA ({categoryTownStats.santaRita})
+                    SANTA RITA ({categoryTownStats.santaRita})
                   </button>
                   <button
                     className={`pill-btn town-pill-guagua ${userTownFilter === 'Guagua' ? 'active' : ''}`}
                     onClick={() => setUserTownFilter('Guagua')}
                   >
-                    📍 GUAGUA ({categoryTownStats.guagua})
+                    GUAGUA ({categoryTownStats.guagua})
                   </button>
                 </div>
               )}
@@ -2682,7 +2668,7 @@ export default function AdminDashboard({ user, onLogout }) {
               <div style={{ width: '320px', position: 'relative' }}>
                 <input
                   type="text"
-                  placeholder={`🔍 Search ${userCategoryTab === 'responders' ? 'responder, unit, department...' : userCategoryTab === 'citizens' ? 'citizen, email, phone...' : 'name, email, ID...'}`}
+                  placeholder={`Search ${userCategoryTab === 'responders' ? 'responder, unit, department...' : userCategoryTab === 'citizens' ? 'citizen, email, phone...' : 'name, email, ID...'}`}
                   className="tactical-input"
                   style={{ padding: '8px 30px 8px 12px', fontSize: '12px' }}
                   value={userSearchQuery}
@@ -2717,11 +2703,11 @@ export default function AdminDashboard({ user, onLogout }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                   <span className="form-label">DEPARTMENT:</span>
                   {[
-                    { id: 'all', label: `ALL (${responderDeptCounts.all})`, icon: '' },
-                    { id: 'Medical', label: `MEDICAL (${responderDeptCounts.Medical})`, icon: '🚑' },
-                    { id: 'Police', label: `POLICE (${responderDeptCounts.Police})`, icon: '🚔' },
-                    { id: 'Fire', label: `FIRE (${responderDeptCounts.Fire})`, icon: '🚒' },
-                    { id: 'Rescue', label: `RESCUE (${responderDeptCounts.Rescue})`, icon: '⛑️' },
+                    { id: 'all', label: `ALL (${responderDeptCounts.all})` },
+                    { id: 'Medical', label: `MEDICAL (${responderDeptCounts.Medical})` },
+                    { id: 'Police', label: `POLICE (${responderDeptCounts.Police})` },
+                    { id: 'Fire', label: `FIRE (${responderDeptCounts.Fire})` },
+                    { id: 'Rescue', label: `RESCUE (${responderDeptCounts.Rescue})` },
                   ].map((dept) => (
                     <button
                       key={dept.id}
@@ -2729,7 +2715,7 @@ export default function AdminDashboard({ user, onLogout }) {
                       className={`pill-btn ${responderDeptFilter === dept.id ? 'active' : ''}`}
                       style={{ fontSize: '10.5px', padding: '4px 9px' }}
                     >
-                      {dept.icon} {dept.label}
+                      {dept.label}
                     </button>
                   ))}
                 </div>
@@ -2741,9 +2727,9 @@ export default function AdminDashboard({ user, onLogout }) {
                   <span className="form-label">AVAILABILITY:</span>
                   {[
                     { id: 'all', label: `ALL (${responderAvailabilityCounts.all})` },
-                    { id: 'Available', label: `🟢 AVAILABLE (${responderAvailabilityCounts.Available})` },
-                    { id: 'Busy', label: `🔴 BUSY (${responderAvailabilityCounts.Busy})` },
-                    { id: 'Offline', label: `⚪ OFFLINE (${responderAvailabilityCounts.Offline})` },
+                    { id: 'Available', label: `AVAILABLE (${responderAvailabilityCounts.Available})` },
+                    { id: 'Busy', label: `BUSY (${responderAvailabilityCounts.Busy})` },
+                    { id: 'Offline', label: `OFFLINE (${responderAvailabilityCounts.Offline})` },
                   ].map((av) => (
                     <button
                       key={av.id}
@@ -2845,9 +2831,9 @@ export default function AdminDashboard({ user, onLogout }) {
                                   width: '36px', height: '36px', borderRadius: '50%',
                                   background: isSuper ? 'linear-gradient(135deg, rgba(244,63,94,0.3), rgba(225,29,72,0.5))' : 'rgba(192,132,252,0.2)',
                                   border: isSuper ? '1.5px solid #f43f5e' : '1.5px solid #c084fc',
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px'
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900', color: isSuper ? '#f43f5e' : '#c084fc'
                                 }}>
-                                  {isSuper ? '👑' : '🛡️'}
+                                  {isSuper ? 'SA' : 'ADM'}
                                 </div>
                                 <div>
                                   <div style={{ fontWeight: '800', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -2869,7 +2855,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 border: `1px solid ${isSuper ? '#f43f5e' : tConf.border}`,
                                 letterSpacing: '0.5px'
                               }}>
-                                📍 {isSuper ? 'CENTRAL COMMAND (ALL HUBS)' : tConf.label}
+                                {isSuper ? 'CENTRAL COMMAND (ALL HUBS)' : tConf.label}
                               </span>
                             </td>
 
@@ -2887,13 +2873,13 @@ export default function AdminDashboard({ user, onLogout }) {
                             <td style={{ padding: '10px' }}>
                               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                                 <span style={{ fontSize: '9px', fontWeight: '700', padding: '2px 5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: '#cbd5e1' }}>
-                                  ⚡ Dispatch Control
+                                  Dispatch Control
                                 </span>
                                 <span style={{ fontSize: '9px', fontWeight: '700', padding: '2px 5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: '#cbd5e1' }}>
-                                  👥 User Governance
+                                  User Governance
                                 </span>
                                 <span style={{ fontSize: '9px', fontWeight: '700', padding: '2px 5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: '#cbd5e1' }}>
-                                  📊 Reports & NOC
+                                  Reports & NOC
                                 </span>
                               </div>
                             </td>
@@ -2967,9 +2953,9 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <div style={{
                                   width: '36px', height: '36px', borderRadius: '50%',
                                   background: 'rgba(56,189,248,0.2)', border: '1.5px solid #38bdf8',
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px'
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900', color: '#38bdf8'
                                 }}>
-                                  🔰
+                                  SUB
                                 </div>
                                 <div>
                                   <div style={{ fontWeight: '800', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -2988,7 +2974,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px',
                                 background: tConf.bg, color: tConf.color, border: `1px solid ${tConf.border}`, letterSpacing: '0.5px'
                               }}>
-                                📍 {tConf.label} SECTOR HQ
+                                {tConf.label} SECTOR HQ
                               </span>
                             </td>
 
@@ -3001,10 +2987,10 @@ export default function AdminDashboard({ user, onLogout }) {
                             <td style={{ padding: '10px' }}>
                               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                                 <span style={{ fontSize: '9px', fontWeight: '700', padding: '2px 5px', borderRadius: '3px', background: 'rgba(56,189,248,0.1)', color: '#38bdf8' }}>
-                                  📡 Local Sector Triage
+                                  Local Sector Triage
                                 </span>
                                 <span style={{ fontSize: '9px', fontWeight: '700', padding: '2px 5px', borderRadius: '3px', background: 'rgba(56,189,248,0.1)', color: '#38bdf8' }}>
-                                  📋 Citizen Vetting
+                                  Citizen Vetting
                                 </span>
                               </div>
                             </td>
@@ -3077,12 +3063,12 @@ export default function AdminDashboard({ user, onLogout }) {
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <div style={{
                                   width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)',
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', border: '1px solid rgba(255,255,255,0.1)'
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '800', color: '#cbd5e1', border: '1px solid rgba(255,255,255,0.1)'
                                 }}>
                                   {u.profile?.avatar_url ? (
                                     <img src={u.profile.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                                   ) : (
-                                    '👤'
+                                    `${(u.profile?.first_name || 'C')[0]}${(u.profile?.last_name || '')[0] || ''}`
                                   )}
                                 </div>
                                 <div>
@@ -3102,7 +3088,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px',
                                 background: tConf.bg, color: tConf.color, border: `1px solid ${tConf.border}`, letterSpacing: '0.5px'
                               }}>
-                                📍 {tConf.label}
+                                {tConf.label}
                               </span>
                             </td>
 
@@ -3117,7 +3103,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 color: isVer ? '#10b981' : '#f59e0b',
                                 border: `1px solid ${isVer ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`
                               }}>
-                                {isVer ? '✓ VERIFIED' : '⏳ PENDING KYC'}
+                                {isVer ? '✓ VERIFIED' : 'PENDING KYC'}
                               </span>
                             </td>
 
@@ -3135,11 +3121,11 @@ export default function AdminDashboard({ user, onLogout }) {
                             <td style={{ padding: '10px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span style={{ fontSize: '10px', fontWeight: '800', color: '#f43f5e', background: 'rgba(244,63,94,0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(244,63,94,0.3)' }}>
-                                  🩸 {u.profile?.blood_type || 'Unknown'}
+                                  {u.profile?.blood_type || 'Unknown'}
                                 </span>
                                 {u.profile?.emergency_contact_phone && (
                                   <span style={{ fontSize: '10.5px', color: '#94a3b8' }} title={`Emergency: ${u.profile?.emergency_contact_name || 'Kin'} (${u.profile?.emergency_contact_phone})`}>
-                                    📞 SOS Kin Ready
+                                    SOS Kin Ready
                                   </span>
                                 )}
                               </div>
@@ -3217,9 +3203,9 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <div style={{
                                   width: '38px', height: '38px', borderRadius: '50%',
                                   background: deptMeta.bg, border: `1.5px solid ${deptMeta.border}`,
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px'
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900', color: deptMeta.color
                                 }}>
-                                  {deptMeta.icon}
+                                  {dept.substring(0, 3).toUpperCase()}
                                 </div>
                                 <div>
                                   <div style={{ fontWeight: '800', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -3239,7 +3225,6 @@ export default function AdminDashboard({ user, onLogout }) {
                                 background: deptMeta.bg, color: deptMeta.color, border: `1px solid ${deptMeta.border}`,
                                 display: 'inline-flex', alignItems: 'center', gap: '4px'
                               }}>
-                                <span>{deptMeta.icon}</span>
                                 <span>{dept.toUpperCase()} RESPONDER</span>
                               </span>
                             </td>
@@ -3249,7 +3234,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px',
                                 background: tConf.bg, color: tConf.color, border: `1px solid ${tConf.border}`, letterSpacing: '0.5px'
                               }}>
-                                📍 {tConf.label}
+                                {tConf.label}
                               </span>
                             </td>
 
@@ -3281,7 +3266,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                     fontSize: '10.5px', fontWeight: '800', cursor: 'pointer', textAlign: 'left'
                                   }}
                                 >
-                                  🚨 Incident #{avail.activeIncident.id} ({avail.activeIncident.status})
+                                  Incident #{avail.activeIncident.id} ({avail.activeIncident.status})
                                 </button>
                               ) : (
                                 <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
@@ -3338,14 +3323,14 @@ export default function AdminDashboard({ user, onLogout }) {
           <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', padding: '24px', background: 'rgba(9, 13, 26, 0.98)', border: '1px solid rgba(56,189,248,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px', marginBottom: '16px' }}>
               <div style={{ fontWeight: '900', fontSize: '15px', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🔰</span>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8', display: 'inline-block' }}></span>
                 <span>DEPLOY MUNICIPAL SUB-ADMIN / DISPATCHER</span>
               </div>
               <button onClick={() => setShowCreateSubAdminModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}>×</button>
             </div>
 
             {subAdminMsg && (
-              <div style={{ padding: '10px 14px', borderRadius: '6px', marginBottom: '14px', fontSize: '12px', background: subAdminMsg.includes('✅') ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)', color: subAdminMsg.includes('✅') ? '#10b981' : '#f43f5e', border: `1px solid ${subAdminMsg.includes('✅') ? '#10b981' : '#f43f5e'}` }}>
+              <div style={{ padding: '10px 14px', borderRadius: '6px', marginBottom: '14px', fontSize: '12px', background: subAdminMsg.toLowerCase().includes('successfully') ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)', color: subAdminMsg.toLowerCase().includes('successfully') ? '#10b981' : '#f43f5e', border: `1px solid ${subAdminMsg.toLowerCase().includes('successfully') ? '#10b981' : '#f43f5e'}` }}>
                 {subAdminMsg}
               </div>
             )}
@@ -3355,7 +3340,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 <label className="form-label">ASSIGNED MUNICIPALITY SECTOR</label>
                 {isJurisdictionLocked ? (
                   <div style={{ marginTop: '4px', padding: '8px 12px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '6px', color: '#38bdf8', fontSize: '12px', fontWeight: '800' }}>
-                    📍 {assignedJurisdiction} Municipal Sector (Locked to your Jurisdiction)
+                    {assignedJurisdiction} Municipal Sector (Locked to your Jurisdiction)
                   </div>
                 ) : (
                   <select
@@ -3467,7 +3452,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     background: 'linear-gradient(135deg, #38bdf8, #0284c7)',
                   }}
                 >
-                  {creatingSub ? 'DEPLOYING UNIT...' : '🚀 DEPLOY SUB-ADMIN ACCOUNT'}
+                  {creatingSub ? 'DEPLOYING UNIT...' : 'DEPLOY SUB-ADMIN ACCOUNT'}
                 </button>
               </div>
             </div>
@@ -3490,7 +3475,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 <label className="form-label">ASSIGNED MUNICIPALITY SECTOR</label>
                 {isJurisdictionLocked ? (
                   <div style={{ marginTop: '3px', padding: '8px 12px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '6px', color: '#38bdf8', fontSize: '12px', fontWeight: '800' }}>
-                    📍 {assignedJurisdiction} Command Sector (Locked to your Jurisdiction)
+                    {assignedJurisdiction} Command Sector (Locked to your Jurisdiction)
                   </div>
                 ) : (
                   <select
@@ -3570,7 +3555,7 @@ export default function AdminDashboard({ user, onLogout }) {
               </div>
 
               {subAdminMsg && (
-                <div style={{ fontSize: '11.5px', color: subAdminMsg.startsWith('✅') ? '#10b981' : '#f43f5e', marginTop: '4px' }}>
+                <div style={{ fontSize: '11.5px', color: subAdminMsg.toLowerCase().includes('successfully') ? '#10b981' : '#f43f5e', marginTop: '4px' }}>
                   {subAdminMsg}
                 </div>
               )}
@@ -3581,7 +3566,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 onClick={createSubAdmin}
                 disabled={creatingSub}
               >
-                {creatingSub ? 'DEPLOYING...' : '⚡ DEPLOY SUB-ADMIN UNIT'}
+                {creatingSub ? 'DEPLOYING...' : 'DEPLOY SUB-ADMIN UNIT'}
               </button>
             </div>
           </div>
@@ -3618,7 +3603,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           fontSize: '10px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px',
                           background: tConf.bg, color: tConf.color, border: `1px solid ${tConf.border}`
                         }}>
-                          📍 {tConf.label}
+                          {tConf.label}
                         </span>
                       </td>
                       <td style={{ padding: '10px' }}>
@@ -3663,7 +3648,7 @@ export default function AdminDashboard({ user, onLogout }) {
           {/* Create Alert Form */}
           <div className="glass-panel" style={{ padding: '20px' }}>
             <div style={{ fontWeight: '800', fontSize: '15px', color: '#f8fafc', marginBottom: '6px' }}>
-              📢 BROADCAST PUBLIC EMERGENCY ALERT
+              BROADCAST PUBLIC EMERGENCY ALERT
             </div>
             <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '16px' }}>
               Broadcast official real-time evacuation directives, weather advisories, or road hazards to citizen devices in {isSuperAdmin ? 'Porac, Santa Rita, and Guagua' : `${assignedJurisdiction}`}.
@@ -3674,7 +3659,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 <label className="form-label">MUNICIPALITY SECTOR</label>
                 {isJurisdictionLocked ? (
                   <div style={{ marginTop: '4px', padding: '8px 12px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '6px', color: '#38bdf8', fontSize: '12px', fontWeight: '800' }}>
-                    📍 {assignedJurisdiction} (Official Local Jurisdiction Broadcast)
+                    {assignedJurisdiction} (Official Local Jurisdiction Broadcast)
                   </div>
                 ) : (
                   <select
@@ -3711,13 +3696,13 @@ export default function AdminDashboard({ user, onLogout }) {
                     value={newAlertForm.alert_type}
                     onChange={(e) => setNewAlertForm({ ...newAlertForm, alert_type: e.target.value })}
                   >
-                    <option value="Typhoon/Flood">🌊 Typhoon / Flood</option>
-                    <option value="Fire Hazard">🔥 Fire Hazard</option>
-                    <option value="Earthquake">🌋 Earthquake</option>
-                    <option value="Road Advisory">🚧 Road Advisory</option>
-                    <option value="Public Safety">🚔 Public Safety</option>
-                    <option value="Health Advisory">🏥 Health Advisory</option>
-                    <option value="General Announcement">📢 General Announcement</option>
+                    <option value="Typhoon/Flood">Typhoon / Flood</option>
+                    <option value="Fire Hazard">Fire Hazard</option>
+                    <option value="Earthquake">Earthquake</option>
+                    <option value="Road Advisory">Road Advisory</option>
+                    <option value="Public Safety">Public Safety</option>
+                    <option value="Health Advisory">Health Advisory</option>
+                    <option value="General Announcement">General Announcement</option>
                   </select>
                 </div>
 
@@ -3729,10 +3714,10 @@ export default function AdminDashboard({ user, onLogout }) {
                     value={newAlertForm.severity}
                     onChange={(e) => setNewAlertForm({ ...newAlertForm, severity: e.target.value })}
                   >
-                    <option value="Critical">🔴 CRITICAL (Immediate Action)</option>
-                    <option value="High">🟠 HIGH (Warning)</option>
-                    <option value="Moderate">🟡 MODERATE (Advisory)</option>
-                    <option value="Low">🟢 LOW (Informational)</option>
+                    <option value="Critical">CRITICAL (Immediate Action)</option>
+                    <option value="High">HIGH (Warning)</option>
+                    <option value="Moderate">MODERATE (Advisory)</option>
+                    <option value="Low">LOW (Informational)</option>
                   </select>
                 </div>
               </div>
@@ -3766,7 +3751,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 className="tactical-btn"
                 style={{ marginTop: '6px', justifyContent: 'center', padding: '12px' }}
               >
-                {creatingAlert ? 'TRANSMITTING BROADCAST...' : '⚡ TRANSMIT PUBLIC EMERGENCY ALERT'}
+                {creatingAlert ? 'TRANSMITTING BROADCAST...' : 'TRANSMIT PUBLIC EMERGENCY ALERT'}
               </button>
             </form>
           </div>
@@ -3813,7 +3798,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             </span>
                           </div>
                           <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                            {alt.alert_type} • 📍 {alt.target_barangay} • {new Date(alt.published_at || alt.createdAt).toLocaleString()}
+                            {alt.alert_type} • {alt.target_barangay} • {new Date(alt.published_at || alt.createdAt).toLocaleString()}
                           </div>
                         </div>
 
@@ -3862,7 +3847,7 @@ export default function AdminDashboard({ user, onLogout }) {
           <div className="glass-panel" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <div style={{ fontSize: '18px', fontWeight: '900', color: '#f8fafc' }}>
-                📊 REAL-TIME MUNICIPAL EMERGENCY RESPONSE ANALYTICS
+                REAL-TIME MUNICIPAL EMERGENCY RESPONSE ANALYTICS
               </div>
               <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
                 Dynamically computed directly from the live MySQL database for operational evaluation and Capstone Defense reporting.
@@ -3901,7 +3886,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 {analyticsData?.summary?.pending || 0}
               </div>
               <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '4px' }}>
-                ⚡ {analyticsData?.summary?.active || 0} Active in Field
+                {analyticsData?.summary?.active || 0} Active in Field
               </div>
             </div>
 
@@ -3922,14 +3907,14 @@ export default function AdminDashboard({ user, onLogout }) {
             {/* Breakdown by Emergency Type */}
             <div className="glass-panel" style={{ padding: '18px' }}>
               <div style={{ fontWeight: '800', fontSize: '14px', color: '#f8fafc', marginBottom: '12px' }}>
-                🔥 INCIDENTS BY EMERGENCY TYPE
+                INCIDENTS BY EMERGENCY TYPE
               </div>
               {analyticsData?.charts?.by_emergency_type?.length ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {analyticsData.charts.by_emergency_type.map((t) => (
                     <div key={t.emergency_type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
                       <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#f8fafc' }}>
-                        {EMERGENCY_ICONS[t.emergency_type] || '🚨'} {t.emergency_type}
+                        {t.emergency_type}
                       </span>
                       <span className="mono-text" style={{ fontWeight: '900', color: '#f43f5e', fontSize: '14px' }}>
                         {t.count}
@@ -3945,14 +3930,14 @@ export default function AdminDashboard({ user, onLogout }) {
             {/* Breakdown by Target Agency */}
             <div className="glass-panel" style={{ padding: '18px' }}>
               <div style={{ fontWeight: '800', fontSize: '14px', color: '#f8fafc', marginBottom: '12px' }}>
-                🏢 INTER-AGENCY DEPLOYMENT DISTRIBUTION
+                INTER-AGENCY DEPLOYMENT DISTRIBUTION
               </div>
               {analyticsData?.charts?.by_agency?.length ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {analyticsData.charts.by_agency.map((ag) => (
                     <div key={ag.target_agency} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
                       <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#f8fafc' }}>
-                        🛡️ {ag.target_agency}
+                        {ag.target_agency}
                       </span>
                       <span className="mono-text" style={{ fontWeight: '900', color: '#38bdf8', fontSize: '14px' }}>
                         {ag.count} incidents
@@ -3968,7 +3953,7 @@ export default function AdminDashboard({ user, onLogout }) {
             {/* Breakdown by Barangay in Porac */}
             <div className="glass-panel" style={{ padding: '18px', gridColumn: '1 / -1' }}>
               <div style={{ fontWeight: '800', fontSize: '14px', color: '#f8fafc', marginBottom: '12px' }}>
-                📍 INCIDENT DENSITY BY BARANGAY (PORAC, PAMPANGA)
+                INCIDENT DENSITY BY BARANGAY (PORAC, PAMPANGA)
               </div>
               {analyticsData?.charts?.by_barangay?.length ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
@@ -4014,11 +3999,15 @@ export default function AdminDashboard({ user, onLogout }) {
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px', marginBottom: '16px' }}>
               <div style={{ fontWeight: '900', fontSize: '15px', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>
-                  {categorizeUser(selectedUserDossier) === 'admins' ? '👑' :
-                   categorizeUser(selectedUserDossier) === 'sub_admins' ? '🔰' :
-                   categorizeUser(selectedUserDossier) === 'responders' ? '🚑' : '👥'}
-                </span>
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  display: 'inline-block',
+                  background: categorizeUser(selectedUserDossier) === 'admins' ? '#f43f5e' :
+                    categorizeUser(selectedUserDossier) === 'sub_admins' ? '#38bdf8' :
+                    categorizeUser(selectedUserDossier) === 'responders' ? '#f59e0b' : '#10b981'
+                }} />
                 <span>
                   {categorizeUser(selectedUserDossier) === 'admins' ? 'ADMINISTRATOR PROFILE' :
                    categorizeUser(selectedUserDossier) === 'sub_admins' ? 'SUB-ADMINISTRATOR PROFILE' :
@@ -4037,7 +4026,7 @@ export default function AdminDashboard({ user, onLogout }) {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>MUNICIPALITY:</span>
                 <span style={{ color: TOWN_CONFIG[detectMunicipality(selectedUserDossier)]?.color, fontWeight: '800' }}>
-                  📍 {detectMunicipality(selectedUserDossier)}, Pampanga
+                  {detectMunicipality(selectedUserDossier)}, Pampanga
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -4059,7 +4048,7 @@ export default function AdminDashboard({ user, onLogout }) {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>KYC VERIFICATION:</span>
                 <span style={{ color: (selectedUserDossier.is_verified || selectedUserDossier.verification_status === 'approved') ? '#10b981' : '#f59e0b', fontWeight: '800' }}>
-                  {(selectedUserDossier.is_verified || selectedUserDossier.verification_status === 'approved') ? '✓ VERIFIED' : '⏳ UNVERIFIED / PENDING'}
+                  {(selectedUserDossier.is_verified || selectedUserDossier.verification_status === 'approved') ? '✓ VERIFIED' : 'UNVERIFIED / PENDING'}
                 </span>
               </div>
 
@@ -4073,7 +4062,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   flexDirection: 'column',
                   gap: '8px'
                 }}>
-                  <div style={{ fontSize: '11px', fontWeight: '800', color: '#f59e0b' }}>⚡ TACTICAL UNIT & TELEMETRY</div>
+                  <div style={{ fontSize: '11px', fontWeight: '800', color: '#f59e0b' }}>TACTICAL UNIT & TELEMETRY</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#64748b' }}>DEPARTMENT:</span>
                     <span style={{ fontWeight: '800', color: (DEPT_CONFIG[getResponderDept(selectedUserDossier)] || DEPT_CONFIG.Medical)?.color }}>
@@ -4107,7 +4096,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   flexDirection: 'column',
                   gap: '8px'
                 }}>
-                  <div style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8' }}>🩺 HEALTH & SAFETY TELEMETRY</div>
+                  <div style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8' }}>HEALTH & SAFETY TELEMETRY</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#64748b' }}>BLOOD TYPE:</span>
                     <span style={{ fontWeight: '800', color: '#f43f5e' }}>{selectedUserDossier.profile?.blood_type || 'Unknown'}</span>
@@ -4147,7 +4136,6 @@ export default function AdminDashboard({ user, onLogout }) {
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ fontSize: '11px', fontWeight: '800', color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>🛡️</span>
                       <span>PHILIPPINE GOVERNMENT ID & VERIFICATION</span>
                     </div>
                     {dossierLoadingVerif && (
@@ -4198,7 +4186,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         }}>
                           {(dossierVerification.status === 'APPROVED' || selectedUserDossier.verification_status === 'approved')
                             ? '✓ APPROVED'
-                            : ((dossierVerification.status === 'REJECTED' || selectedUserDossier.verification_status === 'rejected') ? '✕ REJECTED' : '⏳ PENDING ADMIN REVIEW')}
+                            : ((dossierVerification.status === 'REJECTED' || selectedUserDossier.verification_status === 'rejected') ? '✕ REJECTED' : 'PENDING ADMIN REVIEW')}
                         </span>
                       </div>
 
@@ -4246,7 +4234,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 style={{ width: '100%', height: '65px', objectFit: 'cover', borderRadius: '4px' }}
                               />
                               <div style={{ fontSize: '9.5px', fontWeight: '800', color: '#38bdf8', marginTop: '4px' }}>
-                                ID FRONT 🔍
+                                ID FRONT (VIEW)
                               </div>
                             </div>
                           ) : null}
@@ -4272,7 +4260,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 style={{ width: '100%', height: '65px', objectFit: 'cover', borderRadius: '4px' }}
                               />
                               <div style={{ fontSize: '9.5px', fontWeight: '800', color: '#38bdf8', marginTop: '4px' }}>
-                                ID BACK 🔍
+                                ID BACK (VIEW)
                               </div>
                             </div>
                           ) : (
@@ -4312,7 +4300,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 style={{ width: '100%', height: '65px', objectFit: 'cover', borderRadius: '4px' }}
                               />
                               <div style={{ fontSize: '9.5px', fontWeight: '800', color: '#10b981', marginTop: '4px' }}>
-                                SELFIE SCAN 🔍
+                                SELFIE SCAN (VIEW)
                               </div>
                             </div>
                           ) : null}
@@ -4391,7 +4379,7 @@ export default function AdminDashboard({ user, onLogout }) {
                       alignItems: 'center',
                       gap: '8px'
                     }}>
-                      <span>⚠️</span>
+                      <span style={{ fontWeight: '800', color: '#f59e0b' }}>[!]</span>
                       <span>No official Philippine Government ID documents uploaded yet by this citizen.</span>
                     </div>
                   )}
@@ -4408,7 +4396,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   flexDirection: 'column',
                   gap: '8px'
                 }}>
-                  <div style={{ fontSize: '11px', fontWeight: '800', color: '#c084fc' }}>🛡️ COMMAND PRIVILEGES & SCOPE</div>
+                  <div style={{ fontSize: '11px', fontWeight: '800', color: '#c084fc' }}>COMMAND PRIVILEGES & SCOPE</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#64748b' }}>SECTOR HQ:</span>
                     <span style={{ fontWeight: '800', color: '#38bdf8' }}>
@@ -4519,7 +4507,7 @@ export default function AdminDashboard({ user, onLogout }) {
           <div className="glass-panel" style={{ width: '100%', maxWidth: '520px', padding: '24px', background: 'rgba(9, 13, 26, 0.98)', border: '1px solid rgba(245,158,11,0.4)', boxShadow: '0 0 30px rgba(245,158,11,0.2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px', marginBottom: '16px' }}>
               <div style={{ fontWeight: '900', fontSize: '15px', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🚑</span>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}></span>
                 <span>DEPLOY EMERGENCY FIRST RESPONDER UNIT</span>
               </div>
               <button onClick={() => setShowCreateResponderModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}>×</button>
@@ -4528,9 +4516,9 @@ export default function AdminDashboard({ user, onLogout }) {
             {responderMsg && (
               <div style={{
                 padding: '10px 14px', borderRadius: '6px', marginBottom: '14px', fontSize: '12px', fontWeight: '700',
-                background: responderMsg.startsWith('✅') ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)',
-                color: responderMsg.startsWith('✅') ? '#10b981' : '#f43f5e',
-                border: `1px solid ${responderMsg.startsWith('✅') ? '#10b981' : '#f43f5e'}`
+                background: responderMsg.toLowerCase().includes('successfully') ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)',
+                color: responderMsg.toLowerCase().includes('successfully') ? '#10b981' : '#f43f5e',
+                border: `1px solid ${responderMsg.toLowerCase().includes('successfully') ? '#10b981' : '#f43f5e'}`
               }}>
                 {responderMsg}
               </div>
@@ -4568,10 +4556,10 @@ export default function AdminDashboard({ user, onLogout }) {
                     value={responderForm.department}
                     onChange={(e) => setResponderForm(f => ({ ...f, department: e.target.value }))}
                   >
-                    <option value="Medical">🚑 Medical (EMS/Ambulance)</option>
-                    <option value="Police">🚔 Police (PNP)</option>
-                    <option value="Fire">🚒 Fire (BFP)</option>
-                    <option value="Rescue">⛑️ Rescue / MDRRMO</option>
+                    <option value="Medical">Medical (EMS/Ambulance)</option>
+                    <option value="Police">Police (PNP)</option>
+                    <option value="Fire">Fire (BFP)</option>
+                    <option value="Rescue">Rescue / MDRRMO</option>
                   </select>
                 </div>
                 <div>
@@ -4658,7 +4646,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   fontSize: '13px'
                 }}
               >
-                {creatingResponder ? 'DEPLOYING RESPONDER UNIT...' : '⚡ CONFIRM & DEPLOY FIRST RESPONDER'}
+                {creatingResponder ? 'DEPLOYING RESPONDER UNIT...' : 'CONFIRM & DEPLOY FIRST RESPONDER'}
               </button>
             </form>
           </div>

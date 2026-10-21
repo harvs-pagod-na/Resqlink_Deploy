@@ -180,7 +180,7 @@ export default function BodyInjuryMap({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '18px' }}>🩺</span>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f43f5e', display: 'inline-block' }}></span>
               <span style={{ fontSize: compact ? '13px' : '14.5px', fontWeight: '900', letterSpacing: '0.6px', color: '#f8fafc' }}>
                 HUMAN BODY INJURY MAPPING
               </span>
@@ -225,7 +225,6 @@ export default function BodyInjuryMap({
                 gap: '5px',
               }}
             >
-              <span>👤</span>
               <span>FRONT VIEW</span>
             </button>
             <button
@@ -246,7 +245,6 @@ export default function BodyInjuryMap({
                 gap: '5px',
               }}
             >
-              <span>🔄</span>
               <span>BACK VIEW</span>
             </button>
           </div>
@@ -1275,7 +1273,7 @@ export default function BodyInjuryMap({
           >
             {hoveredRegion ? (
               <span style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8' }}>
-                📍 {BODY_REGIONS_MAP[hoveredRegion]?.label || hoveredRegion}
+                {BODY_REGIONS_MAP[hoveredRegion]?.label || hoveredRegion}
                 {editable && (
                   <span style={{ fontSize: '9.5px', color: '#94a3b8', marginLeft: '6px', fontWeight: '400' }}>
                     {selectedMap.has(hoveredRegion) ? '(Click to deselect)' : '(Click to mark injury)'}
@@ -1338,7 +1336,6 @@ export default function BodyInjuryMap({
                   color: '#64748b',
                 }}
               >
-                <div style={{ fontSize: '20px', marginBottom: '4px' }}>🛡️</div>
                 <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#94a3b8' }}>No Body Parts Selected</div>
                 <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>
                   {editable
@@ -1367,7 +1364,7 @@ export default function BodyInjuryMap({
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '12px' }}>{isAdminReported ? '⚡' : '🚨'}</span>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isAdminReported ? '#f59e0b' : '#ef4444', display: 'inline-block', flexShrink: 0 }} />
                         <div>
                           <div style={{ fontSize: '12px', fontWeight: '800', color: '#f8fafc' }}>
                             {label}
