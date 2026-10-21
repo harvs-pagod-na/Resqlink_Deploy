@@ -416,8 +416,25 @@
         </div>
 
         <div>
-          <label>ATTACH INCIDENT PHOTO (OPTIONAL)</label>
-          <input type="file" id="citizen-photo" accept="image/*" />
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="margin: 0;">ATTACH INCIDENT PHOTO (OPTIONAL)</label>
+            <span style="font-size: 10px; color: #888;">CAMERA & GALLERY</span>
+          </div>
+          <input type="file" id="citizen-photo" accept="image/*" style="display: none;" />
+          <input type="file" id="citizen-camera-input" accept="image/*" capture="environment" style="display: none;" />
+          <input type="file" id="citizen-gallery-input" accept="image/*" style="display: none;" />
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button type="button" id="btn-open-camera" style="padding: 10px; font-size: 11px; font-weight: 800; border: 1px solid #fff; background: #222; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <span>📷 OPEN CAMERA</span>
+            </button>
+            <button type="button" id="btn-open-gallery" style="padding: 10px; font-size: 11px; font-weight: 800; border: 1px solid #444; background: #111; color: #bbb; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <span>🖼️ OPEN GALLERY</span>
+            </button>
+          </div>
+          <div id="citizen-photo-preview-wrap" style="display: none; margin-top: 8px; padding: 6px 10px; border: 1px solid #333; background: #161616; align-items: center; justify-content: space-between;">
+            <span id="citizen-photo-name" class="mono" style="font-size: 11px; color: #fff; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 220px;">✓ Photo selected</span>
+            <button type="button" id="btn-clear-photo" style="background: none; border: none; color: #ff5555; font-size: 10px; font-weight: 800; cursor: pointer;">REMOVE</button>
+          </div>
         </div>
 
         <div>
@@ -526,6 +543,52 @@
     const btnSwitchAccount = document.getElementById('btn-switch-account');
     const citizenDescInput = document.getElementById('citizen-desc');
     const citizenPhotoInput = document.getElementById('citizen-photo');
+    const citizenCameraInput = document.getElementById('citizen-camera-input');
+    const citizenGalleryInput = document.getElementById('citizen-gallery-input');
+    const btnOpenCamera = document.getElementById('btn-open-camera');
+    const btnOpenGallery = document.getElementById('btn-open-gallery');
+    const photoPreviewWrap = document.getElementById('citizen-photo-preview-wrap');
+    const photoNameDisplay = document.getElementById('citizen-photo-name');
+    const btnClearPhoto = document.getElementById('btn-clear-photo');
+
+    let selectedCitizenPhotoFile = null;
+
+    if (btnOpenCamera) {
+      btnOpenCamera.addEventListener('click', () => {
+        citizenCameraInput?.click();
+      });
+    }
+
+    if (btnOpenGallery) {
+      btnOpenGallery.addEventListener('click', () => {
+        citizenGalleryInput?.click();
+      });
+    }
+
+    function handlePhotoSelected(file) {
+      if (!file) return;
+      selectedCitizenPhotoFile = file;
+      if (photoNameDisplay) photoNameDisplay.innerText = `✓ ${file.name}`;
+      if (photoPreviewWrap) photoPreviewWrap.style.display = 'flex';
+    }
+
+    citizenCameraInput?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (file) handlePhotoSelected(file);
+    });
+
+    citizenGalleryInput?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (file) handlePhotoSelected(file);
+    });
+
+    btnClearPhoto?.addEventListener('click', () => {
+      selectedCitizenPhotoFile = null;
+      if (citizenCameraInput) citizenCameraInput.value = '';
+      if (citizenGalleryInput) citizenGalleryInput.value = '';
+      if (citizenPhotoInput) citizenPhotoInput.value = '';
+      if (photoPreviewWrap) photoPreviewWrap.style.display = 'none';
+    });
     const gpsStatus = document.getElementById('gps-status');
     const btnSubmitSos = document.getElementById('btn-submit-sos');
 
@@ -768,7 +831,7 @@
       }
 
       const description = citizenDescInput.value.trim();
-      const file = citizenPhotoInput.files[0];
+      const file = selectedCitizenPhotoFile || citizenPhotoInput?.files?.[0];
 
       btnSubmitSos.disabled = true;
       btnSubmitSos.innerText = 'TRANSMITTING SOS...';

@@ -1523,10 +1523,15 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
             {/* 2. INCIDENT PHOTO (OPTIONAL) - CAMERA & GALLERY OPTIONS */}
             <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <label className="form-label" style={{ margin: 0, color: '#f8fafc' }}>
-                    STEP 2: INCIDENT PHOTO (OPTIONAL)
-                  </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <label className="form-label" style={{ margin: 0, color: '#f8fafc' }}>
+                      STEP 2: INCIDENT PHOTO (OPTIONAL)
+                    </label>
+                    <span style={{ fontSize: '9.5px', fontWeight: '800', color: '#38bdf8', background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.3)', padding: '1px 6px', borderRadius: '4px' }}>
+                      CAMERA & GALLERY
+                    </span>
+                  </div>
                   <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>Visual scene evidence</span>
                 </div>
 

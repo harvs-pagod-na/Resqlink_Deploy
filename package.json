@@ -1,4 +1,11 @@
 {
+  "name": "resqlink-root",
+  "version": "1.0.1",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix Resqlink/frontend run build",
+    "dev": "npm --prefix Resqlink/frontend run dev"
+  },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.1.1",
     "vite": "^8.3.1"
