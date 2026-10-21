@@ -67,6 +67,31 @@ function initSocket(server) {
             },
             io,
           });
+        } else if (role === 'citizen') {
+          try {
+            const { ResqRequest } = require('../models');
+            const resq = await ResqRequest.findByPk(request_id);
+            if (resq && !['Completed', 'Resolved', 'Cancelled', 'Closed'].includes(resq.status)) {
+              resq.latitude = parseFloat(latitude);
+              resq.longitude = parseFloat(longitude);
+              await resq.save();
+              const citizenPayload = {
+                request_id,
+                user_id,
+                role: 'citizen',
+                latitude: parseFloat(latitude),
+                longitude: parseFloat(longitude),
+                timestamp: Date.now(),
+              };
+              io.to(`resq_${request_id}`).emit('citizen_live_location', citizenPayload);
+              io.emit('citizen_live_location', citizenPayload);
+              io.to('role_admin').emit('citizen_live_location', citizenPayload);
+              io.to('role_sub_admin').emit('citizen_live_location', citizenPayload);
+            }
+          } catch (citErr) {
+            console.warn('[SOCKET] Citizen telemetry error:', citErr.message);
+          }
+          return;
         }
 
         const telemetryResult = await processTelemetryPing(
@@ -154,6 +179,37 @@ function initSocket(server) {
           }
         } catch (err) {
           console.error('[SOCKET] Error in update_responder_location:', err.message);
+        }
+      }
+    });
+
+    // Bi-directional live citizen location update
+    socket.on('update_citizen_location', async (data) => {
+      if (data && data.request_id && (data.latitude || data.lat) && (data.longitude || data.lng)) {
+        try {
+          const lat = parseFloat(data.latitude || data.lat);
+          const lng = parseFloat(data.longitude || data.lng);
+          const { ResqRequest } = require('../models');
+          const resq = await ResqRequest.findByPk(data.request_id);
+          if (resq && !['Completed', 'Resolved', 'Cancelled', 'Closed'].includes(resq.status)) {
+            resq.latitude = lat;
+            resq.longitude = lng;
+            await resq.save();
+            const citizenPayload = {
+              request_id: data.request_id,
+              user_id: data.user_id,
+              role: 'citizen',
+              latitude: lat,
+              longitude: lng,
+              timestamp: Date.now(),
+            };
+            io.to(`resq_${data.request_id}`).emit('citizen_live_location', citizenPayload);
+            io.emit('citizen_live_location', citizenPayload);
+            io.to('role_admin').emit('citizen_live_location', citizenPayload);
+            io.to('role_sub_admin').emit('citizen_live_location', citizenPayload);
+          }
+        } catch (err) {
+          console.error('[SOCKET] Error in update_citizen_location:', err.message);
         }
       }
     });

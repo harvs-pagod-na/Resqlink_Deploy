@@ -1354,6 +1354,34 @@ export default function AdminDashboard({ user, onLogout }) {
             : r
         )
       );
+      setSelected((prev) =>
+        prev && prev.id === data.request_id
+          ? { ...prev, responder_lat: data.responder_lat, responder_lng: data.responder_lng, speed: data.speed }
+          : prev
+      );
+    });
+
+    sock.on('citizen_live_location', (data) => {
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === data.request_id
+            ? { ...r, latitude: data.latitude, longitude: data.longitude }
+            : r
+        )
+      );
+      setSelected((prev) =>
+        prev && prev.id === data.request_id
+          ? { ...prev, latitude: data.latitude, longitude: data.longitude }
+          : prev
+      );
+    });
+
+    sock.on('responder_declined_assignment', (data) => {
+      showNotification(
+        `REASSIGNMENT ALERT: Unit ${data.responderName || 'Responder'} cannot fulfill Emergency #${data.incidentId}. Reason: ${data.reason || 'Operational constraint'}. Returned to dispatch queue.`,
+        'alert'
+      );
+      loadRequests();
     });
 
     sock.on('alert:broadcast', (newAlert) => {

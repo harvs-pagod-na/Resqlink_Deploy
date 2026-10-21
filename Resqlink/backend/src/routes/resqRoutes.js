@@ -74,6 +74,12 @@ router.post(
   requireRole('admin', 'sub_admin', 'super_admin', 'responder', 'pnp_responder', 'bfp_responder', 'mdrrmo_admin'),
   resqController.acceptResqRequest
 );
+router.post(
+  '/decline/:id',
+  authenticate,
+  requireRole('admin', 'sub_admin', 'super_admin', 'responder', 'pnp_responder', 'bfp_responder', 'mdrrmo_admin'),
+  resqController.declineResqRequest
+);
 router.get(
   '/subadmins',
   authenticate,

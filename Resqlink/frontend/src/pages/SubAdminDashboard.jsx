@@ -233,14 +233,41 @@ export default function SubAdminDashboard({ user, onLogout }) {
     });
 
     sock.on('resq_live_location', (data) => {
-      if (selected && selected.id === data.request_id) {
-        setSelected((prev) => ({
-          ...prev,
-          responder_lat: data.responder_lat,
-          responder_lng: data.responder_lng,
-          metrics: data.metrics,
-        }));
-      }
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === data.request_id
+            ? { ...r, responder_lat: data.responder_lat, responder_lng: data.responder_lng, speed: data.speed, metrics: data.metrics }
+            : r
+        )
+      );
+      setSelected((prev) =>
+        prev && prev.id === data.request_id
+          ? { ...prev, responder_lat: data.responder_lat, responder_lng: data.responder_lng, speed: data.speed, metrics: data.metrics }
+          : prev
+      );
+    });
+
+    sock.on('citizen_live_location', (data) => {
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === data.request_id
+            ? { ...r, latitude: data.latitude, longitude: data.longitude }
+            : r
+        )
+      );
+      setSelected((prev) =>
+        prev && prev.id === data.request_id
+          ? { ...prev, latitude: data.latitude, longitude: data.longitude }
+          : prev
+      );
+    });
+
+    sock.on('responder_declined_assignment', (data) => {
+      showNotification(
+        `REASSIGNMENT ALERT: Unit ${data.responderName || 'Responder'} cannot fulfill Emergency #${data.incidentId}. Reason: ${data.reason || 'Operational constraint'}. Reassignment required.`,
+        'alert'
+      );
+      loadRequests();
     });
 
     sock.on('receive_chat_message', ({ incidentId, message }) => {

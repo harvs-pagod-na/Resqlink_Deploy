@@ -91,6 +91,8 @@ async function handleLiveLocationAndProgression({
         resq.status = 'Arrived';
         resq.arrived_at = resq.arrived_at || now;
         resq.on_scene_at = resq.on_scene_at || now;
+        const startRef = resq.dispatched_at ? new Date(resq.dispatched_at) : (resq.reported_at ? new Date(resq.reported_at) : (resq.createdAt ? new Date(resq.createdAt) : now));
+        resq.response_duration_seconds = resq.response_duration_seconds || Math.max(0, Math.round((now - startRef) / 1000));
         statusChanged = true;
         proximityStreak.delete(resq.id);
 

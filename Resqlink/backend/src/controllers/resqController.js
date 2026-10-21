@@ -657,6 +657,130 @@ exports.acceptResqRequest = async (req, res) => {
   }
 };
 
+// 6.1.1 Responder Unable to Fulfill / Request Reassignment
+exports.declineResqRequest = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  const userRole = req.user.role;
+  const { reason, notes } = req.body;
+
+  try {
+    const resq = await ResqRequest.findByPk(id);
+    if (!resq) {
+      return res.status(404).json({ success: false, message: 'Emergency request not found' });
+    }
+
+    if (['Completed', 'Resolved', 'Cancelled', 'Closed'].includes(resq.status)) {
+      return res.status(400).json({ success: false, message: 'Cannot decline an already finalized emergency.' });
+    }
+
+    const previousStatus = resq.status;
+    const decliningResponderName = resq.responder_name || `${userRole} (#${userId})`;
+    const declineReason = reason || 'Unable to fulfill operational requirements';
+    const fullDeclineNote = notes ? `${declineReason} - ${notes}` : declineReason;
+
+    // Reset assignment fields so dispatch desk can immediately assign an alternate unit
+    resq.assigned_responder_id = null;
+    resq.responder_name = null;
+    resq.responder_phone = null;
+    resq.responder_unit = null;
+    resq.responder_lat = null;
+    resq.responder_lng = null;
+
+    // Revert status to Assigned (if hub assigned) or Pending so it re-enters the active dispatch pool
+    resq.status = resq.assigned_subadmin_id ? 'Assigned' : 'Pending';
+    await resq.save();
+
+    // Audit log entry for transparency and operational reporting
+    await IncidentTrackingLog.create({
+      incident_id: resq.id,
+      actor_id: userId,
+      actor_name: decliningResponderName,
+      actor_role: userRole,
+      previous_status: previousStatus,
+      new_status: resq.status,
+      notes: `[DECLINED / REASSIGNMENT REQUESTED] ${decliningResponderName} was unable to fulfill request. Reason: ${fullDeclineNote}. Returned to dispatch queue for immediate unit reassignment.`,
+      latitude: resq.latitude,
+      longitude: resq.longitude,
+    });
+
+    // Notify assigned municipal hub / dispatcher immediately
+    if (resq.assigned_subadmin_id) {
+      try {
+        await Notification.create({
+          receiver_id: resq.assigned_subadmin_id,
+          sender_id: userId,
+          target_group: 'specific',
+          type: 'assignment_alert',
+          title: 'Reassignment Needed: Responder Declined',
+          message: `Unit ${decliningResponderName} cannot fulfill Emergency #${resq.id} (${resq.emergency_type} in ${resq.barangay || resq.municipality}). Reason: ${fullDeclineNote}. Please reassign immediately.`,
+          link: `/dashboard?id=${resq.id}`,
+          is_read: false,
+        });
+      } catch (notifErr) {
+        console.warn('[DECLINE NOTIFICATION ERROR]', notifErr.message);
+      }
+    }
+
+    const updatedFull = await ResqRequest.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'requester',
+          attributes: ['id', 'email', 'phone_number', 'is_verified', 'verification_status'],
+          include: [{ model: Profile, as: 'profile' }],
+        },
+        {
+          model: User,
+          as: 'assigned_responder',
+          attributes: ['id', 'email', 'phone_number', 'role', 'agency'],
+          include: [{ model: Profile, as: 'profile' }],
+        },
+        {
+          model: IncidentTrackingLog,
+          as: 'tracking_logs',
+        },
+      ],
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('update_rescue_status', updatedFull);
+      io.emit('emergency:status_change', updatedFull);
+      io.emit('responder_declined_assignment', {
+        incidentId: resq.id,
+        responderId: userId,
+        responderName: decliningResponderName,
+        reason: fullDeclineNote,
+        request: updatedFull,
+      });
+      io.to(`resq_${resq.id}`).emit('update_rescue_status', updatedFull);
+      io.to(`user_${resq.user_id}`).emit('update_rescue_status', updatedFull);
+      io.to('role_admin').emit('responder_declined_assignment', {
+        incidentId: resq.id,
+        responderName: decliningResponderName,
+        reason: fullDeclineNote,
+        request: updatedFull,
+      });
+      io.to('role_sub_admin').emit('responder_declined_assignment', {
+        incidentId: resq.id,
+        responderName: decliningResponderName,
+        reason: fullDeclineNote,
+        request: updatedFull,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Emergency #${resq.id} reassignment requested. Returned to dispatch queue.`,
+      request: updatedFull,
+    });
+  } catch (error) {
+    console.error('[DECLINE RESQ ERROR]', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // 6.2 Validate & Dispatch Emergency Incident with Granular Milestones
 exports.dispatchResqRequest = async (req, res) => {
   const { id } = req.params;
@@ -795,12 +919,16 @@ exports.dispatchResqRequest = async (req, res) => {
     if ((status === 'On Scene' || status === 'Arrived') && !resq.arrived_at) {
       resq.arrived_at = now;
       resq.on_scene_at = now;
+      const startRef = resq.dispatched_at ? new Date(resq.dispatched_at) : (resq.reported_at ? new Date(resq.reported_at) : (resq.createdAt ? new Date(resq.createdAt) : now));
+      resq.response_duration_seconds = Math.max(0, Math.round((now - startRef) / 1000));
     }
     if ((status === 'Resolved' || status === 'Completed') && !resq.completed_at) {
       resq.completed_at = now;
       resq.resolved_at = now;
-      if (resq.dispatched_at) {
-        resq.response_duration_seconds = Math.round((now - new Date(resq.dispatched_at)) / 1000);
+      if (!resq.response_duration_seconds) {
+        const startRef = resq.dispatched_at ? new Date(resq.dispatched_at) : (resq.reported_at ? new Date(resq.reported_at) : (resq.createdAt ? new Date(resq.createdAt) : now));
+        const endRef = resq.arrived_at ? new Date(resq.arrived_at) : (resq.on_scene_at ? new Date(resq.on_scene_at) : now);
+        resq.response_duration_seconds = Math.max(0, Math.round((endRef - startRef) / 1000));
       }
     }
     if (status === 'Closed' && !resq.closed_at) {
@@ -1309,8 +1437,8 @@ exports.getResqAnalytics = async (req, res) => {
     });
     const cancelledIncidents = await ResqRequest.count({ where: { ...whereScope, status: 'Cancelled' } });
 
-    // 2. Average Response Duration
-    let durationWhere = "dispatched_at IS NOT NULL AND (on_scene_at IS NOT NULL OR resolved_at IS NOT NULL)";
+    // 2. Accurate Response Duration Monitoring (Dispatch-to-Scene / Arrival Duration)
+    let durationWhere = "((response_duration_seconds IS NOT NULL AND response_duration_seconds > 0) OR (COALESCE(dispatched_at, reported_at) IS NOT NULL AND COALESCE(arrived_at, on_scene_at, resolved_at, completed_at) IS NOT NULL))";
     if (assignedJurisdiction !== 'all') {
       const cleanTown = assignedJurisdiction.replace(/'/g, "\\'");
       durationWhere += ` AND municipality = '${cleanTown}'`;
@@ -1318,9 +1446,9 @@ exports.getResqAnalytics = async (req, res) => {
 
     const avgResponseQuery = await sequelize.query(`
       SELECT 
-        AVG(TIMESTAMPDIFF(SECOND, dispatched_at, COALESCE(on_scene_at, resolved_at))) AS avg_response_seconds,
-        MIN(TIMESTAMPDIFF(SECOND, dispatched_at, COALESCE(on_scene_at, resolved_at))) AS min_response_seconds,
-        MAX(TIMESTAMPDIFF(SECOND, dispatched_at, COALESCE(on_scene_at, resolved_at))) AS max_response_seconds
+        AVG(COALESCE(response_duration_seconds, TIMESTAMPDIFF(SECOND, COALESCE(dispatched_at, reported_at), COALESCE(arrived_at, on_scene_at, resolved_at, completed_at)))) AS avg_response_seconds,
+        MIN(COALESCE(response_duration_seconds, TIMESTAMPDIFF(SECOND, COALESCE(dispatched_at, reported_at), COALESCE(arrived_at, on_scene_at, resolved_at, completed_at)))) AS min_response_seconds,
+        MAX(COALESCE(response_duration_seconds, TIMESTAMPDIFF(SECOND, COALESCE(dispatched_at, reported_at), COALESCE(arrived_at, on_scene_at, resolved_at, completed_at)))) AS max_response_seconds
       FROM resq_requests
       WHERE ${durationWhere}
     `);

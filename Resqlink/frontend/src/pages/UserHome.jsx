@@ -344,6 +344,43 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
   const [publicAlerts, setPublicAlerts] = useState([]);
   const socketRef = useRef(null);
   const simIntervalRef = useRef(null);
+  const activeRequestRef = useRef(activeRequest);
+
+  useEffect(() => {
+    activeRequestRef.current = activeRequest;
+  }, [activeRequest]);
+
+  // Live continuous GPS stream when emergency tracking is active
+  useEffect(() => {
+    if (!activeRequest || ['Completed', 'Resolved', 'Cancelled', 'Closed'].includes(activeRequest.status)) {
+      return;
+    }
+    if (!navigator.geolocation) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(coords);
+        if (socketRef.current && activeRequestRef.current) {
+          socketRef.current.emit('telemetry_ping', {
+            request_id: activeRequestRef.current.id,
+            user_id: user.id,
+            role: 'citizen',
+            latitude: coords.lat,
+            longitude: coords.lng,
+            speed: pos.coords.speed || 0,
+            heading: pos.coords.heading || 0,
+          });
+        }
+      },
+      (err) => console.warn('[Citizen GPS Watch Warning]:', err.message),
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [activeRequest?.id, activeRequest?.status]);
 
   // Switch Municipality Handler (Porac | Santa Rita | Guagua)
   const handleTownChange = (town) => {
@@ -509,7 +546,8 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
     });
 
     sock.on('resq_live_location', (data) => {
-      if (activeRequest && data.request_id === activeRequest.id) {
+      const cur = activeRequestRef.current;
+      if (cur && data.request_id === cur.id) {
         if (data.responder_lat && data.responder_lng && !isNaN(parseFloat(data.responder_lat)) && parseFloat(data.responder_lat) !== 0) {
           setResponderLocation({ lat: parseFloat(data.responder_lat), lng: parseFloat(data.responder_lng) });
         }
@@ -517,10 +555,27 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
       }
       setActiveRequest((prev) => {
         if (prev && prev.id === data.request_id) {
-          return { ...prev, responder_lat: data.responder_lat, responder_lng: data.responder_lng };
+          if (data.responder_lat && data.responder_lng && !isNaN(parseFloat(data.responder_lat)) && parseFloat(data.responder_lat) !== 0) {
+            setResponderLocation({ lat: parseFloat(data.responder_lat), lng: parseFloat(data.responder_lng) });
+          }
+          return {
+            ...prev,
+            responder_lat: data.responder_lat,
+            responder_lng: data.responder_lng,
+            responder_unit: data.responder_unit || prev.responder_unit,
+            responder_name: data.responder_name || prev.responder_name,
+          };
         }
         return prev;
       });
+    });
+
+    sock.on('responder_declined_assignment', (data) => {
+      const cur = activeRequestRef.current;
+      if (cur && cur.id === data.incidentId) {
+        showNotification('Dispatch Alert: Assigned response unit reported operational constraint. Dispatch Command is immediately assigning an alternate squad.', 'alert');
+        loadMyRequests();
+      }
     });
 
     sock.on('subadmin_confirmed_assignment', (data) => {
@@ -1394,42 +1449,13 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
               </div>
             </div>
 
-            {/* 2. INTERACTIVE HUMAN BODY INJURY MAPPING (OPTIONAL) */}
-            <div>
-              <div style={{ marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label className="form-label" style={{ color: '#38bdf8' }}>STEP 2: INJURY & PAIN MAPPING (OPTIONAL)</label>
-                <span style={{ fontSize: '10.5px', color: '#64748b' }}>Does not delay emergency transmission</span>
-              </div>
-              <BodyInjuryMap
-                selectedInjuries={selectedInjuries}
-                onChange={setSelectedInjuries}
-                injuryDescription={injuryDescription}
-                onDescriptionChange={setInjuryDescription}
-                editable={!submitting}
-                showNotes={true}
-              />
-            </div>
-
-            {/* GPS Location & Media Details */}
+            {/* 2. EMERGENCY LOCATION & HUB (REQUIRED) */}
             <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label className="form-label">STEP 3: SITUATION OVERVIEW & NOTES (OPTIONAL)</label>
-                <textarea
-                  className="tactical-input"
-                  rows={2}
-                  style={{ resize: 'none', marginTop: '6px' }}
-                  placeholder="Describe victims, fire state, flood height, trap status..."
-                  value={sosForm.description}
-                  onChange={(e) => setSosForm((f) => ({ ...f, description: e.target.value }))}
-                />
-              </div>
-
-              {/* Municipality & Barangay Sector Selector */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '4px' }}>
                   <div>
                     <label className="form-label" style={{ color: '#f43f5e', fontWeight: '800' }}>
-                      STEP 4: EMERGENCY LOCATION & HUB (REQUIRED)
+                      STEP 2: EMERGENCY LOCATION & HUB (REQUIRED)
                     </label>
                     <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>
                       Your SOS will be received directly by the selected hub's emergency command desk.
@@ -1566,6 +1592,38 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                 </div>
               </div>
 
+              {/* STEP 3: SITUATION OVERVIEW & NOTES (OPTIONAL) */}
+              <div>
+                <label className="form-label">STEP 3: SITUATION OVERVIEW & NOTES (OPTIONAL)</label>
+                <textarea
+                  className="tactical-input"
+                  rows={2}
+                  style={{ resize: 'none', marginTop: '6px' }}
+                  placeholder="Describe victims, fire state, flood height, trap status..."
+                  value={sosForm.description}
+                  onChange={(e) => setSosForm((f) => ({ ...f, description: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* 4. INTERACTIVE HUMAN BODY INJURY MAPPING (OPTIONAL) */}
+            <div>
+              <div style={{ marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label className="form-label" style={{ color: '#38bdf8' }}>STEP 4: INJURY & PAIN MAPPING (OPTIONAL)</label>
+                <span style={{ fontSize: '10.5px', color: '#64748b' }}>Does not delay emergency transmission</span>
+              </div>
+              <BodyInjuryMap
+                selectedInjuries={selectedInjuries}
+                onChange={setSelectedInjuries}
+                injuryDescription={injuryDescription}
+                onDescriptionChange={setInjuryDescription}
+                editable={!submitting}
+                showNotes={true}
+              />
+            </div>
+
+            {/* 5. INCIDENT PHOTO (OPTIONAL) */}
+            <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label className="form-label">STEP 5: INCIDENT PHOTO (OPTIONAL)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>

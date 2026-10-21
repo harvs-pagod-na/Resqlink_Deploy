@@ -12,14 +12,21 @@ const getSocket = () => {
   return socketInstance;
 };
 
-export default function useRealtimeGeolocation({ interviewId, active = false, onLocationUpdate }) {
+export default function useRealtimeGeolocation({
+  requestId,
+  interviewId,
+  role = 'citizen',
+  active = false,
+  onLocationUpdate,
+}) {
   const [location, setLocation] = useState(null);
   const [error, setError] = useState(null);
   const [isTracking, setIsTracking] = useState(false);
   const watchIdRef = useRef(null);
+  const activeId = requestId || interviewId;
 
   useEffect(() => {
-    // Privacy Condition Guard: Only track when active is true
+    // Guard: Only track when active is true
     if (!active) {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
@@ -54,31 +61,46 @@ export default function useRealtimeGeolocation({ interviewId, active = false, on
         onLocationUpdate(coordsObj);
       }
 
-      if (interviewId) {
-        // 1. Broadcast via Socket.IO real-time channel to active room
-        socket.emit('update_live_location', {
-          interview_id: interviewId,
+      if (activeId) {
+        // 1. Broadcast real-time telemetry over Socket.IO
+        const telemetryPayload = {
+          request_id: activeId,
+          role,
           latitude,
           longitude,
+          speed: speed || 0,
+          heading: heading || 0,
           timestamp: position.timestamp,
-        });
+        };
 
-        // 2. Persist to API database
-        try {
-          await api.patch(`/interviews/${interviewId}/location`, {
+        socket.emit('telemetry_ping', telemetryPayload);
+
+        if (role === 'responder') {
+          socket.emit('update_responder_location', {
+            request_id: activeId,
+            responder_lat: latitude,
+            responder_lng: longitude,
+            speed: speed || 0,
+            heading: heading || 0,
+          });
+
+          // Persist to ResQLink API
+          try {
+            await api.post(`/resq/update-location/${activeId}`, {
+              latitude,
+              longitude,
+              speed: speed || 0,
+              heading: heading || 0,
+            });
+          } catch (postErr) {
+            console.warn('[LOCATION PERSIST WARNING]', postErr.message);
+          }
+        } else {
+          socket.emit('update_citizen_location', {
+            request_id: activeId,
             latitude,
             longitude,
           });
-        } catch (err) {
-          // Fallback to POST if server prefers POST route
-          try {
-            await api.post(`/interviews/${interviewId}/location`, {
-              latitude,
-              longitude,
-            });
-          } catch (postErr) {
-            console.error('[LOCATION PERSIST ERROR]', postErr);
-          }
         }
       }
     };
@@ -88,17 +110,17 @@ export default function useRealtimeGeolocation({ interviewId, active = false, on
       setError(err.message);
     };
 
-    // Continuous high-accuracy GPS tracking logic
+    // Continuous high-accuracy GPS tracking options
     const options = {
       enableHighAccuracy: true,
       timeout: 10000,
-      maximumAge: 0,
+      maximumAge: 1000,
     };
 
-    // Immediately attempt to get current location
+    // Immediate fix
     navigator.geolocation.getCurrentPosition(handleSuccess, handleError, options);
 
-    // Watch position continuously for live real-time updates as user moves
+    // Watch position continuously for live real-time stream
     watchIdRef.current = navigator.geolocation.watchPosition(
       handleSuccess,
       handleError,
@@ -114,7 +136,7 @@ export default function useRealtimeGeolocation({ interviewId, active = false, on
       }
       setIsTracking(false);
     };
-  }, [interviewId, active]);
+  }, [activeId, role, active]);
 
   return { location, error, isTracking };
 }

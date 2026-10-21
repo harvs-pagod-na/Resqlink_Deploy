@@ -81,10 +81,19 @@ export default function ResponderPortal({ user, onLogout }) {
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [showResolutionModal, setShowResolutionModal] = useState(false);
   const [resolutionNotes, setResolutionNotes] = useState('');
+  const [showDeclineModal, setShowDeclineModal] = useState(false);
+  const [declineReason, setDeclineReason] = useState('Unit currently engaged in active emergency');
+  const [declineNotes, setDeclineNotes] = useState('');
+  const [declining, setDeclining] = useState(false);
   const [notification, setNotification] = useState(null);
 
   const socketRef = useRef(null);
   const watchIdRef = useRef(null);
+  const activeIncidentRef = useRef(activeIncident);
+
+  useEffect(() => {
+    activeIncidentRef.current = activeIncident;
+  }, [activeIncident]);
 
   // Initialize hardware GPS & Socket
   useEffect(() => {
@@ -135,8 +144,9 @@ export default function ResponderPortal({ user, onLogout }) {
         setRouteMeta((prev) => ({ ...prev, speedKmh: speed }));
 
         // If currently on an active emergency mission, emit real GPS coordinates to server
-        if (activeIncident && ['Accepted', 'Responder Dispatched', 'En Route', 'Arrived', 'On Scene'].includes(activeIncident.status)) {
-          broadcastLiveLocation(activeIncident.id, coords.lat, coords.lng, speed, pos.coords.heading);
+        const currentIncident = activeIncidentRef.current;
+        if (currentIncident && ['Accepted', 'Responder Dispatched', 'En Route', 'Arrived', 'On Scene'].includes(currentIncident.status)) {
+          broadcastLiveLocation(currentIncident.id, coords.lat, coords.lng, speed, pos.coords.heading);
         }
       },
       (err) => console.warn('[GPS Watch Error]:', err.message),
@@ -187,16 +197,24 @@ export default function ResponderPortal({ user, onLogout }) {
 
     sock.on('update_rescue_status', (data) => {
       const rid = data.id || data?.dataValues?.id;
-      if (activeIncident && activeIncident.id === rid) {
+      const cur = activeIncidentRef.current;
+      if (cur && cur.id === rid) {
         if (['Completed', 'Cancelled', 'Resolved'].includes(data.status)) {
           setActiveIncident(null);
           setRoutePolyline([]);
-          showNotification('✓ Mission completed and archived into History. Standby for next dispatch.', 'success');
+          showNotification('Mission completed and archived into History. Standby for next dispatch.', 'success');
         } else {
           setActiveIncident((prev) => ({ ...prev, ...data }));
         }
       } else if (data.assigned_responder_id === user.id) {
         loadActiveIncident();
+      }
+    });
+
+    sock.on('citizen_live_location', (data) => {
+      const cur = activeIncidentRef.current;
+      if (cur && cur.id === data.request_id) {
+        setActiveIncident((prev) => (prev ? { ...prev, latitude: data.latitude, longitude: data.longitude } : prev));
       }
     });
   };
@@ -243,6 +261,29 @@ export default function ResponderPortal({ user, onLogout }) {
       showNotification(e.response?.data?.message || 'Failed to accept emergency.', 'error');
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  // Responder Unable to Fulfill / Reassign Assignment
+  const handleDeclineEmergency = async () => {
+    if (!activeIncident) return;
+    setDeclining(true);
+    try {
+      const res = await api.post(`/resq/decline/${activeIncident.id}`, {
+        reason: declineReason,
+        notes: declineNotes,
+      });
+      if (res.data?.success) {
+        showNotification('Emergency returned to Dispatch queue for immediate unit reassignment.', 'info');
+        setActiveIncident(null);
+        setRoutePolyline([]);
+        setShowDeclineModal(false);
+        setDeclineNotes('');
+      }
+    } catch (e) {
+      showNotification(e.response?.data?.message || 'Failed to decline emergency.', 'error');
+    } finally {
+      setDeclining(false);
     }
   };
 
@@ -552,7 +593,7 @@ export default function ResponderPortal({ user, onLogout }) {
             {/* 1-TAP MILESTONE ACTION BUTTONS */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
               
-              {/* STAGE 1: Assigned -> Responder Must Accept */}
+              {/* STAGE 1: Assigned -> Responder Must Accept or Decline */}
               {activeIncident.status === 'Assigned' && (
                 <div style={{
                   background: 'rgba(244,63,94,0.15)',
@@ -564,25 +605,46 @@ export default function ResponderPortal({ user, onLogout }) {
                   <div style={{ fontSize: '12px', color: '#f43f5e', fontWeight: '800', marginBottom: '8px' }}>
                     NEW EMERGENCY ASSIGNED BY COMMAND NOC • ACCEPTANCE REQUIRED
                   </div>
-                  <button
-                    disabled={updatingStatus}
-                    onClick={handleAcceptEmergency}
-                    style={{
-                      width: '100%',
-                      background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)',
-                      color: '#fff',
-                      border: 'none',
-                      padding: '14px',
-                      borderRadius: '8px',
-                      fontWeight: '900',
-                      fontSize: '13.5px',
-                      letterSpacing: '0.5px',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 16px rgba(244,63,94,0.5)',
-                    }}
-                  >
-                    {updatingStatus ? 'TRANSMITTING...' : 'ACCEPT EMERGENCY REQUEST'}
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <button
+                      disabled={updatingStatus || declining}
+                      onClick={handleAcceptEmergency}
+                      style={{
+                        width: '100%',
+                        background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '13px',
+                        borderRadius: '8px',
+                        fontWeight: '900',
+                        fontSize: '13.5px',
+                        letterSpacing: '0.5px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 16px rgba(244,63,94,0.5)',
+                      }}
+                    >
+                      {updatingStatus ? 'TRANSMITTING...' : 'ACCEPT EMERGENCY REQUEST'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={updatingStatus || declining}
+                      onClick={() => setShowDeclineModal(true)}
+                      style={{
+                        width: '100%',
+                        background: 'rgba(255,255,255,0.05)',
+                        color: '#cbd5e1',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        padding: '10px',
+                        borderRadius: '8px',
+                        fontWeight: '700',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s',
+                      }}
+                    >
+                      UNABLE TO FULFILL / REQUEST REASSIGNMENT
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -601,6 +663,22 @@ export default function ResponderPortal({ user, onLogout }) {
                   <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
                     Command NOC has been notified of your acceptance. Preparing vehicle & response gear.
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeclineModal(true)}
+                    style={{
+                      marginTop: '8px',
+                      background: 'none',
+                      border: 'none',
+                      color: '#f43f5e',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                      fontWeight: '700',
+                    }}
+                  >
+                    Cannot fulfill after all? Request Reassignment
+                  </button>
                 </div>
               )}
 
@@ -820,6 +898,84 @@ export default function ResponderPortal({ user, onLogout }) {
                 style={{ flex: 1, padding: '10px', background: '#10b981', border: 'none', color: '#fff', borderRadius: '6px', fontWeight: '900', cursor: 'pointer' }}
               >
                 {updatingStatus ? 'SAVING...' : '✓ CONFIRM RESOLVED'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── DECLINE / CANNOT FULFILL REASSIGNMENT MODAL ─── */}
+      {showDeclineModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowDeclineModal(false)}
+        >
+          <div style={{
+            width: '100%', maxWidth: '440px', background: '#0d1224', border: '1px solid rgba(244,63,94,0.4)',
+            borderRadius: '12px', padding: '20px', boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ fontWeight: '900', fontSize: '15px', color: '#f43f5e' }}>
+                DECLINE / CANNOT FULFILL MISSION
+              </div>
+              <button onClick={() => setShowDeclineModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}>×</button>
+            </div>
+
+            <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 12px' }}>
+              If your unit cannot respond, selecting a reason will immediately return Incident #{activeIncident?.id} to the Dispatch Desk for instant reassignment to an alternate unit.
+            </p>
+
+            <label style={{ display: 'block', fontSize: '11px', color: '#f43f5e', fontWeight: '800', marginBottom: '6px' }}>
+              OPERATIONAL CONSTRAINT / REASON:
+            </label>
+            <select
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              style={{
+                width: '100%', background: '#0b1120', border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: '6px', padding: '10px', color: '#fff', fontSize: '12.5px', marginBottom: '12px'
+              }}
+            >
+              <option value="Unit currently engaged in active emergency">Unit currently engaged in active emergency</option>
+              <option value="Equipment breakdown / vehicle mechanical malfunction">Equipment breakdown / vehicle mechanical malfunction</option>
+              <option value="Requires specialized rescue unit (Water rescue / Heavy extrication / Hazmat)">Requires specialized rescue unit (Water rescue / Extrication)</option>
+              <option value="Road impassable / access route blocked by flooding or debris">Road impassable / access route blocked</option>
+              <option value="Outside operational sector / excessive ETA">Outside operational sector / excessive ETA</option>
+              <option value="Other operational constraint">Other operational constraint (Specify below)</option>
+            </select>
+
+            <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', fontWeight: '700', marginBottom: '4px' }}>
+              OPERATIONAL NOTES FOR DISPATCHER (OPTIONAL):
+            </label>
+            <textarea
+              rows="3"
+              style={{
+                width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: '6px', padding: '10px', color: '#fff', fontSize: '12.5px', resize: 'none', boxSizing: 'border-box'
+              }}
+              placeholder="Provide situational details for Dispatch Command..."
+              value={declineNotes}
+              onChange={(e) => setDeclineNotes(e.target.value)}
+            />
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+              <button
+                type="button"
+                onClick={() => setShowDeclineModal(false)}
+                style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: '#94a3b8', borderRadius: '6px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                CANCEL
+              </button>
+              <button
+                type="button"
+                disabled={declining}
+                onClick={handleDeclineEmergency}
+                style={{ flex: 1.3, padding: '10px', background: '#e11d48', border: 'none', color: '#fff', borderRadius: '6px', fontWeight: '900', cursor: 'pointer' }}
+              >
+                {declining ? 'TRANSMITTING...' : 'CONFIRM DECLINE & REASSIGN'}
               </button>
             </div>
           </div>
