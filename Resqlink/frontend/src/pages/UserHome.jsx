@@ -1487,13 +1487,27 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
               </div>
             </div>
 
-            {/* 3. EMERGENCY LOCATION & HUB (REQUIRED) and 4. SITUATION OVERVIEW & NOTES */}
-            <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* 3. SITUATION OVERVIEW & NOTES (OPTIONAL) and 4. EMERGENCY LOCATION & HUB (REQUIRED) */}
+            <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* STEP 3: SITUATION OVERVIEW & NOTES (OPTIONAL) */}
+              <div>
+                <label className="form-label">STEP 3: SITUATION OVERVIEW & NOTES (OPTIONAL)</label>
+                <textarea
+                  className="tactical-input"
+                  rows={2}
+                  style={{ resize: 'none', marginTop: '6px' }}
+                  placeholder="Describe victims, fire state, flood height, trap status..."
+                  value={sosForm.description}
+                  onChange={(e) => setSosForm((f) => ({ ...f, description: e.target.value }))}
+                />
+              </div>
+
+              {/* STEP 4: EMERGENCY LOCATION & HUB (REQUIRED) */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '4px' }}>
                   <div>
                     <label className="form-label" style={{ color: '#f43f5e', fontWeight: '800' }}>
-                      STEP 3: EMERGENCY LOCATION & HUB (REQUIRED)
+                      STEP 4: EMERGENCY LOCATION & HUB (REQUIRED)
                     </label>
                     <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>
                       Your SOS will be received directly by the selected hub's emergency command desk.
@@ -1628,19 +1642,6 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                   <span>Note: You can drag the marker on the map to pinpoint your exact location.</span>
                   <span>GPS: {userLocation ? `${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}` : 'N/A'}</span>
                 </div>
-              </div>
-
-              {/* STEP 4: SITUATION OVERVIEW & NOTES (OPTIONAL) */}
-              <div>
-                <label className="form-label">STEP 4: SITUATION OVERVIEW & NOTES (OPTIONAL)</label>
-                <textarea
-                  className="tactical-input"
-                  rows={2}
-                  style={{ resize: 'none', marginTop: '6px' }}
-                  placeholder="Describe victims, fire state, flood height, trap status..."
-                  value={sosForm.description}
-                  onChange={(e) => setSosForm((f) => ({ ...f, description: e.target.value }))}
-                />
               </div>
             </div>
 
