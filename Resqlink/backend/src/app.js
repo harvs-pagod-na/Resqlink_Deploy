@@ -123,6 +123,18 @@ async function bootstrapServer() {
     await sequelize.sync();
     console.log('[DB] Database models synchronized successfully.');
 
+    // Auto-migrate schema updates (such as injury_description column) on boot
+    try {
+      const [cols] = await sequelize.query(`SHOW COLUMNS FROM resq_requests LIKE 'injury_description';`);
+      if (!cols || cols.length === 0) {
+        console.log('[DB MIGRATION] Adding missing injury_description column to resq_requests...');
+        await sequelize.query(`ALTER TABLE resq_requests ADD COLUMN injury_description TEXT NULL AFTER resolution_notes;`);
+        console.log('[DB MIGRATION] ✓ Added injury_description column successfully.');
+      }
+    } catch (migErr) {
+      console.warn('[DB MIGRATION NOTICE] injury_description check:', migErr.message);
+    }
+
     // Auto-seed if database has no accounts or AUTO_SEED is enabled
     try {
       const { User } = require('./models');

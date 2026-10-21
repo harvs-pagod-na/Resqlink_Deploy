@@ -156,25 +156,60 @@ exports.createResqRequest = async (req, res) => {
     const VALID_AGENCIES = ['MDRRMO', 'PNP', 'BFP', 'Multi-Agency', 'Unassigned'];
     const safeAgency = VALID_AGENCIES.includes(determinedAgency) ? determinedAgency : 'MDRRMO';
 
-    const resq = await ResqRequest.create({
-      user_id: userId,
-      reporter_name: (reporterFullName || 'Citizen').slice(0, 150),
-      contact_number: (contact_number || user.phone_number || '').slice(0, 25),
-      emergency_type: safeType,
-      severity_level: safeSeverity,
-      description: description || '',
-      injury_description: injury_description ? String(injury_description).slice(0, 2000) : null,
-      latitude: lat,
-      longitude: lng,
-      municipality: validTown,
-      barangay: (barangay || user.profile?.barangay || 'Poblacion').slice(0, 100),
-      address_location: (address_location || `[${validTown}] ${barangay || 'Incident Location'}`).slice(0, 255),
-      landmark: landmark ? landmark.slice(0, 200) : null,
-      photo_url: photo_url ? photo_url.slice(0, 255) : null,
-      target_agency: safeAgency,
-      status: 'Pending',
-      reported_at: new Date(),
-    });
+    let resq;
+    try {
+      resq = await ResqRequest.create({
+        user_id: userId,
+        reporter_name: (reporterFullName || 'Citizen').slice(0, 150),
+        contact_number: (contact_number || user.phone_number || '').slice(0, 25),
+        emergency_type: safeType,
+        severity_level: safeSeverity,
+        description: description || '',
+        injury_description: injury_description ? String(injury_description).slice(0, 2000) : null,
+        latitude: lat,
+        longitude: lng,
+        municipality: validTown,
+        barangay: (barangay || user.profile?.barangay || 'Poblacion').slice(0, 100),
+        address_location: (address_location || `[${validTown}] ${barangay || 'Incident Location'}`).slice(0, 255),
+        landmark: landmark ? landmark.slice(0, 200) : null,
+        photo_url: photo_url ? photo_url.slice(0, 255) : null,
+        target_agency: safeAgency,
+        status: 'Pending',
+        reported_at: new Date(),
+      });
+    } catch (createErr) {
+      if (createErr.message && createErr.message.includes('injury_description')) {
+        console.warn('[DB AUTO-HEAL] Missing injury_description column, running on-the-fly migration...');
+        try {
+          await sequelize.query('ALTER TABLE resq_requests ADD COLUMN injury_description TEXT NULL AFTER resolution_notes;');
+        } catch (_) {}
+        const fallbackDesc = injury_description
+          ? `${description || ''}\n[Reported Injury Details]: ${injury_description}`.trim()
+          : (description || '');
+        resq = await ResqRequest.create({
+          user_id: userId,
+          reporter_name: (reporterFullName || 'Citizen').slice(0, 150),
+          contact_number: (contact_number || user.phone_number || '').slice(0, 25),
+          emergency_type: safeType,
+          severity_level: safeSeverity,
+          description: fallbackDesc,
+          latitude: lat,
+          longitude: lng,
+          municipality: validTown,
+          barangay: (barangay || user.profile?.barangay || 'Poblacion').slice(0, 100),
+          address_location: (address_location || `[${validTown}] ${barangay || 'Incident Location'}`).slice(0, 255),
+          landmark: landmark ? landmark.slice(0, 200) : null,
+          photo_url: photo_url ? photo_url.slice(0, 255) : null,
+          target_agency: safeAgency,
+          status: 'Pending',
+          reported_at: new Date(),
+        }, {
+          fields: ['user_id', 'reporter_name', 'contact_number', 'emergency_type', 'severity_level', 'description', 'latitude', 'longitude', 'municipality', 'barangay', 'address_location', 'landmark', 'photo_url', 'target_agency', 'status', 'reported_at']
+        });
+      } else {
+        throw createErr;
+      }
+    }
 
     // Save injury locations if reported by citizen
     if (Array.isArray(injuries) && injuries.length > 0) {
