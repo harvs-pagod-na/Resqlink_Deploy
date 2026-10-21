@@ -123,16 +123,53 @@ async function bootstrapServer() {
     await sequelize.sync();
     console.log('[DB] Database models synchronized successfully.');
 
-    // Auto-migrate schema updates (such as injury_description column) on boot
+    // Auto-migrate schema updates on boot to ensure cloud DB has all columns
     try {
-      const [cols] = await sequelize.query(`SHOW COLUMNS FROM resq_requests LIKE 'injury_description';`);
-      if (!cols || cols.length === 0) {
-        console.log('[DB MIGRATION] Adding missing injury_description column to resq_requests...');
-        await sequelize.query(`ALTER TABLE resq_requests ADD COLUMN injury_description TEXT NULL AFTER resolution_notes;`);
-        console.log('[DB MIGRATION] ✓ Added injury_description column successfully.');
+      const [cols] = await sequelize.query("SHOW COLUMNS FROM resq_requests;");
+      const existingColNames = Array.isArray(cols) ? cols.map(c => c.Field) : [];
+
+      const columnsToEnsure = [
+        { name: 'injury_description', type: 'TEXT NULL' },
+        { name: 'resolution_notes', type: 'TEXT NULL' },
+        { name: 'dispatcher_notes', type: 'TEXT NULL' },
+        { name: 'subadmin_notes', type: 'TEXT NULL' },
+        { name: 'subadmin_confirmed_at', type: 'DATETIME NULL' },
+        { name: 'assigned_sector', type: 'VARCHAR(100) NULL' },
+      ];
+
+      for (const col of columnsToEnsure) {
+        if (!existingColNames.includes(col.name)) {
+          console.log(`[DB MIGRATION] Adding missing column '${col.name}' to resq_requests...`);
+          try {
+            await sequelize.query(`ALTER TABLE resq_requests ADD COLUMN ${col.name} ${col.type};`);
+            console.log(`[DB MIGRATION] ✓ Added column '${col.name}' successfully.`);
+          } catch (colErr) {
+            console.warn(`[DB MIGRATION NOTICE] Could not add '${col.name}':`, colErr.message);
+          }
+        }
       }
+
+      // Ensure resq_injuries table exists
+      await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS resq_injuries (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          resq_request_id INT NOT NULL,
+          body_part VARCHAR(100) NOT NULL,
+          body_part_label VARCHAR(150) NOT NULL,
+          view_orientation ENUM('front', 'back', 'both') NOT NULL DEFAULT 'front',
+          reported_by ENUM('citizen', 'admin', 'subadmin') NOT NULL DEFAULT 'citizen',
+          reporter_user_id INT NULL,
+          status ENUM('reported', 'confirmed', 'removed_by_admin') NOT NULL DEFAULT 'reported',
+          is_active TINYINT(1) NOT NULL DEFAULT 1,
+          severity VARCHAR(50) NULL,
+          notes TEXT NULL,
+          createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_resq_injuries_req (resq_request_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `).catch(() => {});
     } catch (migErr) {
-      console.warn('[DB MIGRATION NOTICE] injury_description check:', migErr.message);
+      console.warn('[DB MIGRATION NOTICE] resq_requests column check:', migErr.message);
     }
 
     // Auto-seed if database has no accounts or AUTO_SEED is enabled

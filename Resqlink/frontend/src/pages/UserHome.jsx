@@ -874,6 +874,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
       const enhancedDescription = [
         selectedTypes.length > 1 ? `[EMERGENCY CATEGORIES: ${selectedTypes.join(', ')}]` : '',
         sosForm.description ? `Note: ${sosForm.description}` : '',
+        injuryDescription ? `[REPORTED INJURIES / PAIN]: ${injuryDescription}` : '',
         healthSummaryParts.length > 0 ? `[PATIENT TELEMETRY: ${healthSummaryParts.join(' | ')}]` : ''
       ].filter(Boolean).join('\n');
 
@@ -894,7 +895,7 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
         latitude: lat,
         longitude: lng,
         injuries: selectedInjuries,
-        injury_description: injuryDescription,
+        injury_description: injuryDescription || '',
       };
 
       let res;
@@ -904,24 +905,39 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
           timeout: 10000,
         });
       } catch (postErr) {
-        // Fallback: If network error or timeout via dev-server proxy, try direct backend port 3000
-        const isNetworkOrTimeout = postErr.name === 'AbortError' || postErr.code === 'ECONNABORTED' || postErr.message?.includes('Network');
-        if (isNetworkOrTimeout && typeof window !== 'undefined' && window.location?.hostname) {
-          console.warn('[ResqLink] Proxy stall detected, trying direct connection to backend port 3000...');
-          const directUrl = `http://${window.location.hostname}:3000/api/resq/request`;
-          const token = localStorage.getItem('resqlink_token') || localStorage.getItem('token') || localStorage.getItem('access_token');
-          const directRes = await fetch(directUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify(payload),
-          });
-          const directData = await directRes.json();
-          res = { data: directData };
-        } else {
-          throw postErr;
+        // Self-healing: if remote database rejects injury_description column, automatically retry without it
+        const errText = postErr.response?.data?.message || postErr.message || '';
+        if (errText.includes('injury_description') || errText.includes('Unknown column')) {
+          console.warn('[ResqLink] Retrying SOS without raw injury_description field...');
+          const safePayload = { ...payload };
+          delete safePayload.injury_description;
+          try {
+            res = await api.post('/resq/request', safePayload, { timeout: 10000 });
+          } catch (retryErr) {
+            postErr = retryErr;
+          }
+        }
+
+        if (!res) {
+          // Fallback: If network error or timeout via dev-server proxy, try direct backend port 3000
+          const isNetworkOrTimeout = postErr.name === 'AbortError' || postErr.code === 'ECONNABORTED' || postErr.message?.includes('Network');
+          if (isNetworkOrTimeout && typeof window !== 'undefined' && window.location?.hostname) {
+            console.warn('[ResqLink] Proxy stall detected, trying direct connection to backend port 3000...');
+            const directUrl = `http://${window.location.hostname}:3000/api/resq/request`;
+            const token = localStorage.getItem('resqlink_token') || localStorage.getItem('token') || localStorage.getItem('access_token');
+            const directRes = await fetch(directUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify(payload),
+            });
+            const directData = await directRes.json();
+            res = { data: directData };
+          } else {
+            throw postErr;
+          }
         }
       }
 

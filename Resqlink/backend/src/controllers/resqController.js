@@ -178,10 +178,10 @@ exports.createResqRequest = async (req, res) => {
         reported_at: new Date(),
       });
     } catch (createErr) {
-      if (createErr.message && createErr.message.includes('injury_description')) {
-        console.warn('[DB AUTO-HEAL] Missing injury_description column, running on-the-fly migration...');
+      if (createErr.message && (createErr.message.includes('injury_description') || createErr.message.includes('Unknown column'))) {
+        console.warn('[DB AUTO-HEAL] Missing column detected, running on-the-fly migration...');
         try {
-          await sequelize.query('ALTER TABLE resq_requests ADD COLUMN injury_description TEXT NULL AFTER resolution_notes;');
+          await sequelize.query('ALTER TABLE resq_requests ADD COLUMN injury_description TEXT NULL;');
         } catch (_) {}
         const fallbackDesc = injury_description
           ? `${description || ''}\n[Reported Injury Details]: ${injury_description}`.trim()
@@ -251,24 +251,34 @@ exports.createResqRequest = async (req, res) => {
       console.warn('[IncidentTrackingLog Non-Fatal Warning]:', logErr.message);
     }
 
-    const fullRequest = await ResqRequest.findByPk(resq.id, {
-      include: [
-        {
-          model: User,
-          as: 'requester',
-          attributes: ['id', 'email', 'phone_number', 'is_verified', 'verification_status'],
-          include: [{ model: Profile, as: 'profile' }],
-        },
-        {
-          model: IncidentTrackingLog,
-          as: 'tracking_logs',
-        },
-        {
-          model: ResqInjury,
-          as: 'injuries',
-        },
-      ],
-    });
+    let fullRequest = null;
+    try {
+      fullRequest = await ResqRequest.findByPk(resq.id, {
+        include: [
+          {
+            model: User,
+            as: 'requester',
+            attributes: ['id', 'email', 'phone_number', 'is_verified', 'verification_status'],
+            include: [{ model: Profile, as: 'profile' }],
+          },
+          {
+            model: IncidentTrackingLog,
+            as: 'tracking_logs',
+          },
+          {
+            model: ResqInjury,
+            as: 'injuries',
+          },
+        ],
+      });
+    } catch (findErr) {
+      console.warn('[findByPk Non-Fatal Fallback]:', findErr.message);
+      fullRequest = resq.toJSON ? resq.toJSON() : resq;
+    }
+
+    if (!fullRequest) {
+      fullRequest = resq.toJSON ? resq.toJSON() : resq;
+    }
 
     // Broadcast live over Socket.IO
     const io = req.app.get('io');
@@ -348,6 +358,20 @@ exports.getMyResqRequests = async (req, res) => {
       active_request: activeRequest,
     });
   } catch (error) {
+    if (error.message && (error.message.includes('injury_description') || error.message.includes('Unknown column'))) {
+      console.warn('[DB AUTO-HEAL] getMyResqRequests caught column error, running migration & retry...');
+      try {
+        await sequelize.query('ALTER TABLE resq_requests ADD COLUMN injury_description TEXT NULL;');
+        const retryRequests = await ResqRequest.findAll({
+          where: { user_id: req.user.id },
+          order: [['createdAt', 'DESC']],
+        });
+        const activeRequest = retryRequests.find((r) =>
+          ['Pending', 'Assigned', 'Accepted', 'Validated', 'Responder Dispatched', 'Dispatched', 'En Route', 'On Scene', 'Arrived', 'In Progress'].includes(r.status)
+        ) || null;
+        return res.json({ success: true, requests: retryRequests, active_request: activeRequest });
+      } catch (_) {}
+    }
     return res.status(500).json({ success: false, message: error.message });
   }
 };
