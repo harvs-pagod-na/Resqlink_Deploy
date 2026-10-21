@@ -129,12 +129,24 @@ async function bootstrapServer() {
       const existingColNames = Array.isArray(cols) ? cols.map(c => c.Field) : [];
 
       const columnsToEnsure = [
-        { name: 'injury_description', type: 'TEXT NULL' },
-        { name: 'resolution_notes', type: 'TEXT NULL' },
-        { name: 'dispatcher_notes', type: 'TEXT NULL' },
-        { name: 'subadmin_notes', type: 'TEXT NULL' },
-        { name: 'subadmin_confirmed_at', type: 'DATETIME NULL' },
+        { name: 'assigned_subadmin_id', type: 'INT NULL' },
         { name: 'assigned_sector', type: 'VARCHAR(100) NULL' },
+        { name: 'subadmin_confirmed_at', type: 'DATETIME NULL' },
+        { name: 'subadmin_notes', type: 'TEXT NULL' },
+        { name: 'assigned_department', type: 'VARCHAR(50) NULL' },
+        { name: 'is_verified_incident', type: 'TINYINT(1) DEFAULT 0' },
+        { name: 'assigned_agency', type: 'VARCHAR(50) NULL' },
+        { name: 'dispatcher_notes', type: 'TEXT NULL' },
+        { name: 'resolution_notes', type: 'TEXT NULL' },
+        { name: 'injury_description', type: 'TEXT NULL' },
+        { name: 'validated_at', type: 'DATETIME NULL' },
+        { name: 'dispatched_at', type: 'DATETIME NULL' },
+        { name: 'en_route_at', type: 'DATETIME NULL' },
+        { name: 'on_scene_at', type: 'DATETIME NULL' },
+        { name: 'arrived_at', type: 'DATETIME NULL' },
+        { name: 'completed_at', type: 'DATETIME NULL' },
+        { name: 'closed_at', type: 'DATETIME NULL' },
+        { name: 'response_duration_seconds', type: 'INT NULL' },
       ];
 
       for (const col of columnsToEnsure) {

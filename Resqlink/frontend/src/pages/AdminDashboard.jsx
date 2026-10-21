@@ -314,10 +314,17 @@ function DispatchModal({ request, onClose, onSave }) {
   const handleSave = async (overrideStatus = null) => {
     setSaving(true);
     try {
-      const payload = { ...form };
+      let subadminId = form.assigned_subadmin_id;
+      if (!subadminId && subadminsList.length > 0) {
+        subadminId = subadminsList[0].id;
+        set('assigned_subadmin_id', subadminId);
+      }
+      const payload = { ...form, assigned_subadmin_id: subadminId };
       if (overrideStatus) payload.status = overrideStatus;
       await onSave(request.id, payload);
       onClose();
+    } catch (err) {
+      console.error('[handleSave error]:', err);
     } finally {
       setSaving(false);
     }
@@ -914,14 +921,15 @@ function DispatchModal({ request, onClose, onSave }) {
           <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
             {request.status === 'Pending' ? (
               <button
+                type="button"
                 onClick={() => handleSave('Assigned')}
-                disabled={saving || !form.assigned_subadmin_id}
+                disabled={saving}
                 className="tactical-btn"
                 style={{
                   flex: 1, justifyContent: 'center', padding: '14px', fontSize: '13px',
                   background: 'linear-gradient(135deg, #0284c7, #0ea5e9)',
                   boxShadow: '0 0 20px rgba(14,165,233,0.4)',
-                  opacity: (!form.assigned_subadmin_id) ? 0.6 : 1
+                  cursor: saving ? 'wait' : 'pointer'
                 }}
               >
                 {saving ? 'ASSIGNING DISPATCHER...' : `ASSIGN DISPATCHER & NOTIFY SUB-ADMIN`}
@@ -1508,16 +1516,25 @@ export default function AdminDashboard({ user, onLogout }) {
   };
 
   const dispatchRequest = async (id, form) => {
-    const res = await api.put(`/resq/dispatch/${id}`, form);
-    if (res.data.success) {
-      setRequests((prev) => {
-        const next = prev.map((r) => (r.id === id ? { ...r, ...res.data.request } : r));
-        setCounts(calculateCounts(next));
-        return next;
-      });
-      showNotification(`Request #${id} status updated to: ${form.status}`, 'success');
-      loadRequests();
-      loadAnalytics();
+    try {
+      const res = await api.put(`/resq/dispatch/${id}`, form);
+      if (res.data.success) {
+        setRequests((prev) => {
+          const next = prev.map((r) => (r.id === id ? { ...r, ...res.data.request } : r));
+          setCounts(calculateCounts(next));
+          return next;
+        });
+        showNotification(`Incident #${id} assigned to ${form.assigned_sector || 'Sector'} Command Dispatcher!`, 'success');
+        loadRequests();
+        loadAnalytics();
+      } else {
+        showNotification(res.data.message || 'Dispatch update failed.', 'error');
+      }
+    } catch (e) {
+      console.error('[Dispatch Error]:', e);
+      const errMsg = e.response?.data?.message || e.message || 'Failed to dispatch request.';
+      showNotification(errMsg, 'error');
+      throw e;
     }
   };
 

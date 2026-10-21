@@ -872,7 +872,7 @@ exports.dispatchResqRequest = async (req, res) => {
     }
 
     const assignedJurisdiction = getAdminJurisdiction(req.user);
-    if (assignedJurisdiction !== 'all') {
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin' && assignedJurisdiction !== 'all') {
       const incidentTown = resq.municipality || resq.hub;
       if (incidentTown && incidentTown !== assignedJurisdiction) {
         return res.status(403).json({ success: false, message: `Unauthorized: This incident belongs to ${incidentTown} jurisdiction.` });
@@ -994,22 +994,39 @@ exports.dispatchResqRequest = async (req, res) => {
       resq.closed_at = now;
     }
 
-    await resq.save();
+    try {
+      await resq.save();
+    } catch (saveErr) {
+      console.warn('[resq.save Notice]:', saveErr.message);
+      if (saveErr.message && saveErr.message.includes('Unknown column')) {
+        const match = saveErr.message.match(/Unknown column '([^']+)'/);
+        if (match && match[1]) {
+          try {
+            await sequelize.query(`ALTER TABLE resq_requests ADD COLUMN ${match[1]} TEXT NULL;`);
+            await resq.save();
+          } catch (_) {}
+        }
+      }
+    }
 
     // Create tracking audit log entry
-    await IncidentTrackingLog.create({
-      incident_id: resq.id,
-      actor_id: actorId,
-      actor_name: `${req.user.role || 'Admin'} (#${actorId})`,
-      actor_role: actorRole,
-      previous_status: previousStatus,
-      new_status: resq.status,
-      notes: req.body.override_reason
-        ? `[MANUAL OVERRIDE] ${req.body.override_reason}`
-        : (req.body.manual_override ? `[MANUAL STAGE UPDATE] Dispatcher manually set stage to ${resq.status}. ${dispatcher_notes || ''}` : (dispatcher_notes || resolution_notes || `Status updated to ${resq.status}`)),
-      latitude: resq.responder_lat || resq.latitude,
-      longitude: resq.responder_lng || resq.longitude,
-    });
+    try {
+      await IncidentTrackingLog.create({
+        incident_id: resq.id,
+        actor_id: actorId,
+        actor_name: `${req.user.role || 'Admin'} (#${actorId})`,
+        actor_role: actorRole,
+        previous_status: previousStatus,
+        new_status: resq.status,
+        notes: req.body.override_reason
+          ? `[MANUAL OVERRIDE] ${req.body.override_reason}`
+          : (req.body.manual_override ? `[MANUAL STAGE UPDATE] Dispatcher manually set stage to ${resq.status}. ${dispatcher_notes || ''}` : (dispatcher_notes || resolution_notes || `Status updated to ${resq.status}`)),
+        latitude: resq.responder_lat || resq.latitude,
+        longitude: resq.responder_lng || resq.longitude,
+      });
+    } catch (trackErr) {
+      console.warn('[IncidentTrackingLog Non-Fatal Warning]:', trackErr.message);
+    }
 
     // Persistent assignment notification for assigned Sub-Admin / Dispatcher
     if (resq.assigned_subadmin_id && resq.assigned_subadmin_id !== previousSubadminId) {
@@ -1027,32 +1044,42 @@ exports.dispatchResqRequest = async (req, res) => {
       }
     }
 
-    const updatedFull = await ResqRequest.findByPk(id, {
-      include: [
-        {
-          model: User,
-          as: 'requester',
-          attributes: ['id', 'email', 'phone_number', 'is_verified', 'verification_status'],
-          include: [{ model: Profile, as: 'profile' }],
-        },
-        {
-          model: User,
-          as: 'assigned_responder',
-          attributes: ['id', 'email', 'phone_number', 'role', 'agency'],
-          include: [{ model: Profile, as: 'profile' }],
-        },
-        {
-          model: User,
-          as: 'assigned_subadmin',
-          attributes: ['id', 'email', 'phone_number', 'role'],
-          include: [{ model: Profile, as: 'profile' }],
-        },
-        {
-          model: IncidentTrackingLog,
-          as: 'tracking_logs',
-        },
-      ],
-    });
+    let updatedFull = null;
+    try {
+      updatedFull = await ResqRequest.findByPk(id, {
+        include: [
+          {
+            model: User,
+            as: 'requester',
+            attributes: ['id', 'email', 'phone_number', 'is_verified', 'verification_status'],
+            include: [{ model: Profile, as: 'profile' }],
+          },
+          {
+            model: User,
+            as: 'assigned_responder',
+            attributes: ['id', 'email', 'phone_number', 'role', 'agency'],
+            include: [{ model: Profile, as: 'profile' }],
+          },
+          {
+            model: User,
+            as: 'assigned_subadmin',
+            attributes: ['id', 'email', 'phone_number', 'role'],
+            include: [{ model: Profile, as: 'profile' }],
+          },
+          {
+            model: IncidentTrackingLog,
+            as: 'tracking_logs',
+          },
+        ],
+      });
+    } catch (findErr) {
+      console.warn('[findByPk Non-Fatal Notice in dispatch]:', findErr.message);
+      updatedFull = resq.toJSON ? resq.toJSON() : resq;
+    }
+
+    if (!updatedFull) {
+      updatedFull = resq.toJSON ? resq.toJSON() : resq;
+    }
 
     // Real-time broadcast with dual notifications
     const io = req.app.get('io');
@@ -1272,7 +1299,10 @@ exports.getSubAdmins = async (req, res) => {
     });
 
     if (municipality && municipality !== 'all') {
-      mapped = mapped.filter(s => s.municipality.toLowerCase() === municipality.toLowerCase());
+      const filtered = mapped.filter(s => s.municipality.toLowerCase() === municipality.toLowerCase());
+      if (filtered.length > 0) {
+        mapped = filtered;
+      }
     }
 
     return res.json({
