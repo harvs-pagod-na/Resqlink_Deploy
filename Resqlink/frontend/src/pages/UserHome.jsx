@@ -1449,13 +1449,51 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
               </div>
             </div>
 
-            {/* 2. EMERGENCY LOCATION & HUB (REQUIRED) */}
+            {/* 2. INCIDENT PHOTO (OPTIONAL) */}
+            <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div>
+                <label className="form-label">STEP 2: INCIDENT PHOTO (OPTIONAL)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleMediaUpload}
+                    disabled={photoUploading}
+                    className="tactical-input"
+                    style={{ flex: 1, padding: '7px' }}
+                  />
+                  {photoUploading && <span style={{ fontSize: '10.5px', color: '#0ea5e9' }}>Uploading...</span>}
+                </div>
+                {sosForm.photo_url && (
+                  <div style={{ marginTop: '8px', padding: '8px', borderRadius: '6px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img
+                      src={sosForm.photo_url.startsWith('http') || sosForm.photo_url.startsWith('/uploads') ? sosForm.photo_url : `/uploads/${sosForm.photo_url}`}
+                      alt="Preview"
+                      style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #10b981' }}
+                    />
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                      <div style={{ color: '#10b981', fontSize: '11px', fontWeight: '800' }}>✓ Photo Attached</div>
+                      <div style={{ color: '#94a3b8', fontSize: '9.5px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{sosForm.photo_url.split('/').pop()}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSosForm(f => ({ ...f, photo_url: null }))}
+                      style={{ background: 'none', border: 'none', color: '#f43f5e', fontSize: '10.5px', cursor: 'pointer', fontWeight: '800' }}
+                    >
+                      REMOVE
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 3. EMERGENCY LOCATION & HUB (REQUIRED) and 4. SITUATION OVERVIEW & NOTES */}
             <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '4px' }}>
                   <div>
                     <label className="form-label" style={{ color: '#f43f5e', fontWeight: '800' }}>
-                      STEP 2: EMERGENCY LOCATION & HUB (REQUIRED)
+                      STEP 3: EMERGENCY LOCATION & HUB (REQUIRED)
                     </label>
                     <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>
                       Your SOS will be received directly by the selected hub's emergency command desk.
@@ -1592,9 +1630,9 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                 </div>
               </div>
 
-              {/* STEP 3: SITUATION OVERVIEW & NOTES (OPTIONAL) */}
+              {/* STEP 4: SITUATION OVERVIEW & NOTES (OPTIONAL) */}
               <div>
-                <label className="form-label">STEP 3: SITUATION OVERVIEW & NOTES (OPTIONAL)</label>
+                <label className="form-label">STEP 4: SITUATION OVERVIEW & NOTES (OPTIONAL)</label>
                 <textarea
                   className="tactical-input"
                   rows={2}
@@ -1606,10 +1644,10 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
               </div>
             </div>
 
-            {/* 4. INTERACTIVE HUMAN BODY INJURY MAPPING (OPTIONAL) */}
+            {/* 5. INTERACTIVE HUMAN BODY INJURY MAPPING (OPTIONAL) */}
             <div>
               <div style={{ marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label className="form-label" style={{ color: '#38bdf8' }}>STEP 4: INJURY & PAIN MAPPING (OPTIONAL)</label>
+                <label className="form-label" style={{ color: '#38bdf8' }}>STEP 5: INJURY & PAIN MAPPING (OPTIONAL)</label>
                 <span style={{ fontSize: '10.5px', color: '#64748b' }}>Does not delay emergency transmission</span>
               </div>
               <BodyInjuryMap
@@ -1620,44 +1658,6 @@ export default function UserHome({ user, onLogout, onUserUpdate, justRegistered 
                 editable={!submitting}
                 showNotes={true}
               />
-            </div>
-
-            {/* 5. INCIDENT PHOTO (OPTIONAL) */}
-            <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label className="form-label">STEP 5: INCIDENT PHOTO (OPTIONAL)</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleMediaUpload}
-                    disabled={photoUploading}
-                    className="tactical-input"
-                    style={{ flex: 1, padding: '7px' }}
-                  />
-                  {photoUploading && <span style={{ fontSize: '10.5px', color: '#0ea5e9' }}>Uploading...</span>}
-                </div>
-                {sosForm.photo_url && (
-                  <div style={{ marginTop: '8px', padding: '8px', borderRadius: '6px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <img
-                      src={sosForm.photo_url.startsWith('http') || sosForm.photo_url.startsWith('/uploads') ? sosForm.photo_url : `/uploads/${sosForm.photo_url}`}
-                      alt="Preview"
-                      style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #10b981' }}
-                    />
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <div style={{ color: '#10b981', fontSize: '11px', fontWeight: '800' }}>✓ Photo Attached</div>
-                      <div style={{ color: '#94a3b8', fontSize: '9.5px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{sosForm.photo_url.split('/').pop()}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSosForm(f => ({ ...f, photo_url: null }))}
-                      style={{ background: 'none', border: 'none', color: '#f43f5e', fontSize: '10.5px', cursor: 'pointer', fontWeight: '800' }}
-                    >
-                      REMOVE
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Error Banner Above Dispatch Action */}
